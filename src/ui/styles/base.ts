@@ -24,7 +24,13 @@ export const baseStyles = css`
   }
 
   :focus-visible {
-    outline: var(--border-size-2) solid var(--link);
+    outline: var(--border-size-2) solid var(--ss-focus);
     outline-offset: var(--size-1);
+  }
+
+  /* Page headings receive focus on navigation (tabindex="-1") but are not
+     interactive, so don't draw a focus ring around them. */
+  h1[tabindex='-1']:focus {
+    outline: none;
   }
 `;

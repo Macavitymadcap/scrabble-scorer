@@ -2,15 +2,35 @@
 @import 'open-props/normalize';
 
 :root {
+  /* Follow the system light/dark setting, including native UI and scrollbars. */
+  color-scheme: light dark;
+
+  /* App colour tokens. light-dark() picks the value for the used scheme. */
+  --ss-surface: light-dark(var(--gray-0), var(--gray-10));
+  --ss-surface-raised: light-dark(#fff, var(--gray-9));
+  --ss-text: light-dark(var(--gray-9), var(--gray-1));
+  --ss-text-muted: light-dark(var(--gray-7), var(--gray-4));
+  --ss-border: light-dark(var(--gray-6), var(--gray-6));
+  --ss-accent: light-dark(var(--teal-9), var(--teal-3));
+  --ss-accent-text: light-dark(#fff, var(--gray-10));
+  --ss-danger: light-dark(var(--red-9), var(--red-3));
+  --ss-danger-text: light-dark(#fff, var(--gray-10));
+  --ss-notice: light-dark(var(--yellow-1), var(--yellow-11));
+  --ss-focus: light-dark(var(--blue-9), var(--blue-3));
+
   /* Premium-square colours, matching the physical board. */
   --ss-premium-dl: var(--blue-2);
   --ss-premium-tl: var(--blue-7);
   --ss-premium-dw: var(--pink-3);
   --ss-premium-tw: var(--red-7);
+
+  accent-color: var(--ss-accent);
 }
 
 body {
   min-block-size: 100dvh;
+  background: var(--ss-surface);
+  color: var(--ss-text);
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
     env(safe-area-inset-left);
 }
