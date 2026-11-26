@@ -190,13 +190,23 @@ flowchart TD
   module that every component includes.
 - Data flows down through properties. User actions go up as `CustomEvent`s
   with `bubbles: true, composed: true` so they cross shadow boundaries.
-- **Only pages talk to the store**, through a small Lit reactive controller
-  (`StoreController`) that subscribes to the store and triggers a re-render.
-  Atoms, molecules and organisms stay presentational and easy to test in
-  isolation.
+- **Only pages talk to the store.** They extend a small `PageElement` base
+  class that holds the `store` property and a Lit reactive controller,
+  `StoreController`. The controller subscribes while the page is connected
+  and re-renders it on every change. Atoms, molecules and organisms stay
+  presentational and easy to test in isolation.
 - Inputs are native elements inside components. Components report their values
   through events rather than as form-associated custom elements, so the app
-  doesn't need `ElementInternals`.
+  doesn't need `ElementInternals`. Typed event classes (`StartGameEvent`,
+  `DismissNoticeEvent`) are added to `HTMLElementEventMap`.
+- **No custom element just to restyle a native one.** A `<button>` or
+  `<input>` inside another component's shadow root is cut off from a
+  surrounding `<form>`, so submit and label association break. Following the
+  web-components guidance, buttons and fields are **native elements styled
+  by shared atom styles** (`buttonStyles`, `fieldStyles`,
+  `visuallyHiddenStyles`), not wrapper components. A custom element is used
+  only for encapsulated behaviour. For example, the new-game form is one
+  organism that owns its `<form>` and inputs.
 - Decorators use **TypeScript's legacy (experimental) syntax**
   (`@property() name = ''`), with `experimentalDecorators: true` and
   `useDefineForClassFields: false`, which Lit requires for legacy decorators.
@@ -205,20 +215,51 @@ flowchart TD
   them natively, so they would fail at runtime. Legacy decorators compile
   correctly. Revisit once Oxc can lower standard decorators.
 
-Atomic Design layout, with representative components:
+Atomic Design layout. Built so far in **bold**; the rest are planned:
 
-| Level     | Examples                                                                                                                                              |
-| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Atoms     | `ss-tile`, `ss-button`, `ss-toggle`, `ss-badge`, `ss-text-input`                                                                                      |
-| Molecules | `ss-word-row` (tiles + multipliers + subtotal), `ss-player-field`, `ss-score-cell`                                                                    |
-| Organisms | `ss-turn-form`, `ss-scoreboard`, `ss-player-list`, `ss-endgame-form`, `ss-word-check`                                                                 |
-| Templates | `ss-app-shell` (header, main, footer actions)                                                                                                         |
-| Pages     | `ss-page-home`, `ss-page-new-game`, `ss-page-scoreboard`, `ss-page-turn`, `ss-page-end-game`, `ss-page-results`, `ss-page-lookup`, `ss-page-settings` |
+| Level     | Examples                                                                                                                                                         |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Atoms     | **`buttonStyles`, `fieldStyles`, `visuallyHiddenStyles`** (shared styles for native elements); `ss-tile` (0006, interactive)                                     |
+| Molecules | **`ss-confirm-dialog`**; `ss-word-row` (tiles + multipliers + subtotal)                                                                                          |
+| Organisms | **`ss-new-game-form`, `ss-scoreboard`**; `ss-turn-form`, `ss-endgame-form`, `ss-word-check`                                                                      |
+| Templates | **`ss-app-shell`** (header with app name, notices, main)                                                                                                         |
+| Pages     | **`ss-page-home`, `ss-page-new-game`, `ss-page-game`** (scoreboard); `ss-page-turn`, `ss-page-end-game`, `ss-page-results`, `ss-page-lookup`, `ss-page-settings` |
+| Root      | **`ss-app`**: follows the hash, renders the page in the shell, passes it the store                                                                               |
 
 ### Routing
 
-A small **hash router** (`#/scoreboard`, `#/turn/12`) maps routes to page
-elements. Hash routes need no server-side fallback, which suits GitHub Pages.
+- **Routes:** `src/ui/router.ts` holds `ROUTES`, a `Map` from hash to page
+  (`#/` home, `#/new` new game, `#/game` scoreboard) and its document title.
+  It's a `Map` so lookups never match inherited keys like `toString`. Unknown
+  hashes show the home page. Hash routes need no server-side fallback, which
+  suits GitHub Pages.
+- **The root element:** `ss-app` listens for `hashchange` and renders the page
+  for the current route, using a lookup map of render functions.
+  - It updates `document.title` on each route change.
+  - After navigating, but not on first load, it moves focus to the new page's
+    `<h1 tabindex="-1">`, so screen readers announce the page.
+  - It renders into the light DOM, so the page sits directly in the shell's
+    slot.
+- **Pages decide what to show when they don't apply**, rather than
+  redirecting. For example, the scoreboard with no game says so and links to
+  a new game.
+- **Wiring:** `main.ts` picks storage with
+  `chooseStorage(() => localStorage)` and creates the `GameStore`. It hands
+  both the store and whether storage is persistent to `<ss-app>`. The shell
+  warns when games can't be saved.
+
+### Browser support
+
+- Rely on **Baseline Widely available** features.
+- Newer (**Newly available**) features are used only as progressive
+  enhancement that degrades gracefully, with no polyfills. For example:
+  - Dialogs open with `showModal()`, not invoker commands
+    (`command`/`commandfor`).
+  - Light-dismiss through `closedby` isn't used.
+  - `overscroll-behavior` on dialogs is an enhancement.
+- Colours use `light-dark()` with `color-scheme: light dark` on `:root` and
+  `<meta name="color-scheme">`. Theme follows the system setting, with no
+  toggle.
 
 ### Source layout
 
@@ -231,11 +272,17 @@ src/
                on load), testing.ts (test fixtures)
   words/       lexicon.ts (load + lookup), import.ts (user list, IndexedDB)
   ui/
-    atoms/ molecules/ organisms/ templates/ pages/
-    styles/    base.ts (shared Lit css for every shadow root)
-  styles/      global.css (Open Props imports, tokens, base styles)
-  router.ts
-  main.ts
+    atoms/       button-styles.ts, field-styles.ts, visually-hidden.ts
+    molecules/   ss-confirm-dialog.ts
+    organisms/   ss-new-game-form.ts, ss-scoreboard.ts
+    templates/   ss-app-shell.ts
+    pages/       page-element.ts (base class), ss-page-*.ts
+    controllers/ store-controller.ts
+    styles/      base.ts (shared Lit css for every shadow root)
+    router.ts, ss-app.ts (root element)
+    testing.ts, test-setup.ts (browser test helpers)
+  styles/      global.css (Open Props imports, colour tokens, page base)
+  main.ts      (creates the store and hands it to <ss-app>)
 scripts/
   build-wordlist.ts
 ```
@@ -405,7 +452,8 @@ when passed as callbacks (`@click=${store.undoTurn}`). Private helpers
   - `dismissNotice()` clears the notice.
 - **Later milestones:**
   - Wiring the store to the browser (`chooseStorage(() => localStorage)`) and
-    the Lit `StoreController` belong to `scrabble-0005`.
+    the Lit `StoreController` were done in `scrabble-0005` (see
+    [Routing](#routing)).
   - `navigator.storage.persist()` belongs to `scrabble-0008`.
 
 ## Word lookup (stretch goal)
@@ -498,18 +546,28 @@ Keep it as simple as possible: HTML, CSS and TypeScript, with no UI framework.
 - **Package manager:** npm, with Node 26 pinned in `.nvmrc`.
 - **Styling:** [Open Props](https://open-props.style) for design tokens
   (sizes, colours, fonts, shadows) and its normalise stylesheet. Plain CSS
-  using nesting and custom properties, with no preprocessor. Light and dark
-  themes use `prefers-color-scheme`. Premium colours match the board: DL light
-  blue, TL dark blue, DW pink, TW red.
+  using nesting and custom properties, with no preprocessor. App colour tokens
+  (`--ss-surface`, `--ss-text`, `--ss-accent`, `--ss-danger`, ...) are defined
+  once on `:root` with `light-dark()`, and pass into every shadow root.
+  Premium colours match the board: DL light blue, TL dark blue, DW pink, TW
+  red. Touch targets are at least 48px, and inputs use a font size of at
+  least 16px so iOS doesn't zoom.
 - **UI library:** Lit 3.
 - **Runtime dependencies:** `lit`, `open-props`, plus `idb-keyval` (under
   1 KB) for the imported word list. Nothing else.
 - **Diagrams:** Mermaid code blocks in Markdown.
 - **npm scripts:** `dev`, `build`, `preview`, `check` (format check, lint and
-  types), `fix`, `lint`, `format`, `test` (single run), `test:watch`,
-  `test:coverage`, and later `build:wordlist`.
-- **Dev dependencies:** `vite-plus` and `@vitest/coverage-v8`, pinned to
-  the Vitest version Vite+ bundles.
+  types), `fix`, `lint`, `format`, `test` (single run), `test:watch`
+  (`vp test watch`; plain `vp test` doesn't watch), `test:coverage`, and
+  later `build:wordlist`.
+- **Dev dependencies:**
+  - `vite-plus`.
+  - `@vitest/coverage-v8` and `@vitest/browser-playwright`, pinned to the
+    Vitest version Vite+ bundles.
+  - `playwright`, pinned exactly (`1.65.1`). Each Playwright version needs
+    one Chromium build, and pinning lets local runs reuse the Chromium already
+    in `~/.cache/ms-playwright` rather than downloading. Upgrading Playwright
+    means a new download, locally and in CI.
 
 ## Development workflow
 
@@ -582,14 +640,33 @@ All tests run on Vitest through Vite+ (`vp test`).
 - **Word list tests:** the built list is sorted, lowercase, `[a-z]{2,15}`
   and free of duplicates. It contains sample British spellings (_colour_,
   _recognise_) and excludes sample proper nouns. Lookups are case-insensitive.
-- **Component tests:** Vitest browser mode with Playwright (Chromium) for
-  organisms with real behaviour, such as `ss-turn-form` (tap cycling, live
-  totals) and `ss-scoreboard`.
+- **Component tests:** Vitest browser mode with Playwright, in headless
+  Chromium.
+  - **Two Vitest projects in `vite.config.ts`:** `unit` (Node) runs
+    `*.test.ts`, and `browser` runs `*.browser.test.ts`.
+  - **Setup:** `src/ui/test-setup.ts` empties the page and resets the hash
+    after each test. `optimizeDeps.include` pre-bundles the browser-test
+    dependencies, because otherwise the first cold run fails while Vite
+    optimises them.
+  - **Helpers** (`src/ui/testing.ts`): `create`, `mount`, `testStore` and
+    `storeWithGame`.
+  - **Queries:** tests use role-based locators (`page.getByRole`), which
+    reach into open shadow roots.
+  - **Shadow DOM gotchas:**
+    - Focus inside a shadow root shows on `shadowRoot.activeElement`, not
+      `document.activeElement`, so `toHaveFocus()` can't be used.
+    - Slotted content isn't part of its slot's text.
+    - `toHaveTextContent('...')` with a string matches the whole text.
+  - **Coverage:** `src/ui` is held at **90%** (pure UI logic, such as the
+    router and controller, is unit-tested in Node). `src/domain` and
+    `src/state` stay at 100%.
 - **End-to-end smoke test:** one Playwright flow (new game -> three turns ->
   undo -> end game -> results) run against `vp preview`.
 - **CI:** `.github/workflows/ci.yml` runs on every pull request and every push
-  to `main`: `npm ci`, `npm run check` (format, lint, types), `npm run test:coverage`, then
-  `npm run build`. It's a required status check on `main`.
+  to `main`: `npm ci`, install Chromium, `npm run check` (format, lint,
+  types), `npm run test:coverage`, then `npm run build`. Chromium is cached
+  per Playwright version (`actions/cache`), and its system libraries are
+  installed on every run. It's a required status check on `main`.
 
 ## Deployment
 
@@ -678,18 +755,18 @@ file.
 Each milestone is one `scrabble-NNNN` branch and pull request (see
 [Development workflow](#development-workflow)).
 
-| Branch          | Milestone                                                                                        |
-| --------------- | ------------------------------------------------------------------------------------------------ |
-| `scrabble-0001` | Design document (this file)                                                                      |
-| `scrabble-0002` | Project scaffold: Vite+, TypeScript, Lit, Open Props, lint/format/test config, PR CI             |
-| `scrabble-0003` | Domain: tiles, turn scoring, end game, reducer, with full unit tests                             |
-| `scrabble-0004` | State: store, persistence, migrations                                                            |
-| `scrabble-0005` | UI foundations: app shell, router, atoms, base styles; new-game and scoreboard pages             |
-| `scrabble-0006` | Turn entry: word rows, premium toggles, live preview, edit and undo                              |
-| `scrabble-0007` | End game and results; game history                                                               |
-| `scrabble-0008` | Deployment and PWA: Pages workflow, base path, manifest, service worker, install hint, wake lock |
-| `scrabble-0009` | Stretch: word list build script, lookup page, inline word check                                  |
-| `scrabble-0010` | Stretch: settings and importing your own word list                                               |
+| Branch          | Milestone                                                                                                      |
+| --------------- | -------------------------------------------------------------------------------------------------------------- |
+| `scrabble-0001` | Design document (this file)                                                                                    |
+| `scrabble-0002` | Project scaffold: Vite+, TypeScript, Lit, Open Props, lint/format/test config, PR CI                           |
+| `scrabble-0003` | Domain: tiles, turn scoring, end game, reducer, with full unit tests                                           |
+| `scrabble-0004` | State: store, persistence, migrations                                                                          |
+| `scrabble-0005` | UI foundations: app shell, router, atoms, base styles; new-game and scoreboard pages (with pass and undo)      |
+| `scrabble-0006` | Turn entry: `ss-tile`, word rows, premium toggles, live preview, editing turns; "Enter turn" on the scoreboard |
+| `scrabble-0007` | End game and results; game history                                                                             |
+| `scrabble-0008` | Deployment and PWA: Pages workflow, base path, manifest, service worker, install hint, wake lock               |
+| `scrabble-0009` | Stretch: word list build script, lookup page, inline word check                                                |
+| `scrabble-0010` | Stretch: settings and importing your own word list                                                             |
 
 The core game is usable after `scrabble-0007` and published after
 `scrabble-0008`.
