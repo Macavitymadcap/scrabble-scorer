@@ -1,7 +1,7 @@
 # Scrabble Scorer: Design
 
 This application helps players keep score in a real-world game of Scrabble,
-played on a physical board. Users set up a game with 2–4 players. On each turn
+played on a physical board. Users set up a game with 2-4 players. On each turn
 they enter the tiles played and the app calculates the score. It shows the
 current round's scores and a running total for every player.
 
@@ -12,7 +12,7 @@ As a stretch goal, users can also check whether a word is legal (see
 
 ### In scope
 
-- One game at a time with 2–4 named players, in a fixed turn order.
+- One game at a time with 2-4 named players, in a fixed turn order.
 - Scoring each turn from typed words with premium-square and blank markers.
 - Running totals, a per-round breakdown and a history of turns.
 - Correcting or undoing a turn.
@@ -34,20 +34,20 @@ As a stretch goal, users can also check whether a word is legal (see
 
 ### Tiles
 
-| Points | Letters                       |
-| ------ | ----------------------------- |
-| 0      | blank (×2)                    |
-| 1      | A, E, I, O, U, L, N, S, T, R  |
-| 2      | D, G                          |
-| 3      | B, C, M, P                    |
-| 4      | F, H, V, W, Y                 |
-| 5      | K                             |
-| 8      | J, X                          |
-| 10     | Q, Z                          |
+| Points | Letters                      |
+| ------ | ---------------------------- |
+| 0      | blank (x2)                   |
+| 1      | A, E, I, O, U, L, N, S, T, R |
+| 2      | D, G                         |
+| 3      | B, C, M, P                   |
+| 4      | F, H, V, W, Y                |
+| 5      | K                            |
+| 8      | J, X                         |
+| 10     | Q, Z                         |
 
-Distribution (100 tiles): A×9, B×2, C×2, D×4, E×12, F×2, G×3, H×2, I×9, J×1,
-K×1, L×4, M×2, N×6, O×8, P×2, Q×1, R×6, S×4, T×6, U×4, V×2, W×2, X×1, Y×2,
-Z×1, blank×2.
+Distribution (100 tiles): Ax9, Bx2, Cx2, Dx4, Ex12, Fx2, Gx3, Hx2, Ix9, Jx1,
+Kx1, Lx4, Mx2, Nx6, Ox8, Px2, Qx1, Rx6, Sx4, Tx6, Ux4, Vx2, Wx2, Xx1, Yx2,
+Zx1, blankx2.
 
 These values live in a single config module so another tile set can be added
 later.
@@ -61,7 +61,7 @@ later.
    only for tiles placed this turn.
 4. **Double and triple word** squares multiply the word's total after letter
    premiums. They count only for tiles placed this turn. Several stack by
-   multiplying: two DW squares give ×4, two TW squares give ×9.
+   multiplying: two DW squares give x4, two TW squares give x9.
 5. If a newly placed tile on a premium square is part of two words, the premium
    counts in **both** words.
 6. The turn score is the sum of its words, plus a **50-point bingo bonus** if
@@ -94,13 +94,13 @@ the players end it by hand (for example after six scoreless turns in a row).
 Turn entry is built for speed at the table, ideally on a phone.
 
 1. The screen shows the **current player** and the round number.
-2. The player **types the main word**, A–Z only. Typing changes it to upper
+2. The player **types the main word**, A-Z only. Typing changes it to upper
    case and shows one tile per letter.
-3. **Tapping a tile** cycles it through: normal → DL → TL → normal. A separate
+3. **Tapping a tile** cycles it through: normal -> DL -> TL -> normal. A separate
    **long-press or "blank" toggle** marks the tile as a blank. Each state looks
    distinct, colour-coded to match the board.
 4. **Word multiplier** buttons toggle DW and TW, with a count (for example
-   DW×2) for words that span two premium squares.
+   DW x2) for words that span two premium squares.
 5. **"Add word"** adds another word row for each cross-word. Each row shows its
    own subtotal.
 6. A **bingo toggle** adds the 50-point bonus. The player sets it by hand
@@ -139,7 +139,7 @@ flowchart LR
 
 - **Home**: start a new game, or resume the game in progress if there is one.
   Starting a new game while one is in progress asks for confirmation first.
-- **New game**: enter 2–4 player names, reorder them to set the turn order,
+- **New game**: enter 2-4 player names, reorder them to set the turn order,
   then start.
 - **Scoreboard**: the main screen. It shows a table of rounds (rows) by players
   (columns), each player's running total, and who plays next. Tapping a cell
@@ -197,17 +197,22 @@ flowchart TD
 - Inputs are native elements inside components. Components report their values
   through events rather than as form-associated custom elements, so the app
   doesn't need `ElementInternals`.
-- Decorators use the TC39 standard syntax that Lit 3 supports
-  (`@property() accessor name = ''`). `experimentalDecorators` stays off.
+- Decorators use **TypeScript's legacy (experimental) syntax**
+  (`@property() name = ''`), with `experimentalDecorators: true` and
+  `useDefineForClassFields: false`, which Lit requires for legacy decorators.
+  The plan was standard TC39 decorators (`@property() accessor name`). During
+  the scaffold, Rolldown/Oxc left those untranspiled, and no browser supports
+  them natively, so they would fail at runtime. Legacy decorators compile
+  correctly. Revisit once Oxc can lower standard decorators.
 
 Atomic Design layout, with representative components:
 
-| Level     | Examples                                                                 |
-| --------- | ------------------------------------------------------------------------ |
-| Atoms     | `ss-tile`, `ss-button`, `ss-toggle`, `ss-badge`, `ss-text-input`         |
-| Molecules | `ss-word-row` (tiles + multipliers + subtotal), `ss-player-field`, `ss-score-cell` |
-| Organisms | `ss-turn-form`, `ss-scoreboard`, `ss-player-list`, `ss-endgame-form`, `ss-word-check` |
-| Templates | `ss-app-shell` (header, main, footer actions)                            |
+| Level     | Examples                                                                                                                                              |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Atoms     | `ss-tile`, `ss-button`, `ss-toggle`, `ss-badge`, `ss-text-input`                                                                                      |
+| Molecules | `ss-word-row` (tiles + multipliers + subtotal), `ss-player-field`, `ss-score-cell`                                                                    |
+| Organisms | `ss-turn-form`, `ss-scoreboard`, `ss-player-list`, `ss-endgame-form`, `ss-word-check`                                                                 |
+| Templates | `ss-app-shell` (header, main, footer actions)                                                                                                         |
 | Pages     | `ss-page-home`, `ss-page-new-game`, `ss-page-scoreboard`, `ss-page-turn`, `ss-page-end-game`, `ss-page-results`, `ss-page-lookup`, `ss-page-settings` |
 
 ### Routing
@@ -224,6 +229,7 @@ src/
   words/       lexicon.ts (load + lookup), import.ts (user list, IndexedDB)
   ui/
     atoms/ molecules/ organisms/ templates/ pages/
+    styles/    base.ts (shared Lit css for every shadow root)
   styles/      global.css (Open Props imports, tokens, base styles)
   router.ts
   main.ts
@@ -239,22 +245,25 @@ scripts/
 type Premium = 'none' | 'DL' | 'TL';
 
 interface TilePlay {
-  letter: string;       // 'A'–'Z'
-  blank: boolean;       // scores 0
-  premium: Premium;     // only set on tiles placed this turn
+  letter: string; // 'A'-'Z'
+  blank: boolean; // scores 0
+  premium: Premium; // only set on tiles placed this turn
 }
 
 interface WordPlay {
   tiles: TilePlay[];
-  doubleWords: number;  // count of DW squares covered this turn (0–2)
-  tripleWords: number;  // count of TW squares covered this turn (0–2)
+  doubleWords: number; // count of DW squares covered this turn (0-2)
+  tripleWords: number; // count of TW squares covered this turn (0-2)
 }
 
 type Turn =
   | { id: string; playerId: string; kind: 'play'; words: WordPlay[]; bingo: boolean; at: string }
   | { id: string; playerId: string; kind: 'pass' | 'exchange' | 'withdrawn'; at: string };
 
-interface Player { id: string; name: string }
+interface Player {
+  id: string;
+  name: string;
+}
 
 interface EndGame {
   wentOutPlayerId: string | null;
@@ -266,8 +275,8 @@ interface Game {
   id: string;
   createdAt: string;
   updatedAt: string;
-  players: Player[];   // in turn order
-  turns: Turn[];       // in play order
+  players: Player[]; // in turn order
+  turns: Turn[]; // in play order
   status: 'active' | 'finished';
   endGame?: EndGame;
 }
@@ -334,15 +343,15 @@ A one-off build script, `scripts/build-wordlist.ts`, creates the bundled list:
 
 A prototype run measured these figures:
 
-| Measure                                   | Value                    |
-| ----------------------------------------- | ------------------------ |
-| ENABLE after filtering                    | 168,551 words            |
-| British variants added (heuristic)        | ~500 (e.g. *recognise*, *kilometres*, *orthopaedist*) |
-| Final list                                | ~169k words, ~1.7 MB raw |
-| Gzipped (as served by GitHub Pages)       | ~0.44 MB                 |
+| Measure                             | Value                                                 |
+| ----------------------------------- | ----------------------------------------------------- |
+| ENABLE after filtering              | 168,551 words                                         |
+| British variants added (heuristic)  | ~500 (e.g. _recognise_, _kilometres_, _orthopaedist_) |
+| Final list                          | ~169k words, ~1.7 MB raw                              |
+| Gzipped (as served by GitHub Pages) | ~0.44 MB                                              |
 
-ENABLE already contains many British spellings (*colour*, *realise*,
-*theatre*), so the gap is mostly derived forms.
+ENABLE already contains many British spellings (_colour_, _realise_,
+_theatre_), so the gap is mostly derived forms.
 
 **Known limitation:** this fixes spelling, not vocabulary. Collins includes
 about 100k more words, many of them Scots, Commonwealth or obscure, so some
@@ -362,7 +371,7 @@ imported one, and remove the imported list at any time.
 - The list is imported with Vite's `?url` suffix, so it gets a content-hashed
   file name and is cached long-term.
 - It is fetched **lazily** the first time a lookup is needed, so it doesn't
-  slow down the first load. The UI shows "loading word list…" until it is
+  slow down the first load. The UI shows "loading word list..." until it is
   ready.
 - It is parsed into a `Set<string>` for O(1) lookups. If memory turns out to
   be a problem on low-end phones, a sorted array with binary search is the
@@ -373,11 +382,19 @@ imported one, and remove the imported list at any time.
 
 Keep it as simple as possible: HTML, CSS and TypeScript, with no UI framework.
 
-- **Toolchain:** [Vite+](https://github.com/voidzero-dev/vite-plus) via its `vp` CLI. It covers the
-  dev server, build (Rolldown), tests (Vitest), linting (Oxlint) and formatting
-  (Oxfmt).
+- **Toolchain:** [Vite+](https://github.com/voidzero-dev/vite-plus) 1.8 via
+  its `vp` CLI, installed as a project dev dependency (no global install
+  needed). It covers the dev server and build (Vite 8 / Rolldown), tests
+  (Vitest 5), linting (Oxlint), formatting (Oxfmt) and type checking (tsrs).
+  All of it is configured in `vite.config.ts`. npm `overrides` pin `vite` and
+  `vitest` to the copies Vite+ bundles, as its docs require; update them
+  whenever Vite+ is upgraded (`npx vp toolchain` shows the versions).
+- **Type checking:** done by `vp check` (lint `typeAware` + `typeCheck`), so
+  `tsc` and the `typescript` package aren't needed.
+- **Running scripts:** TypeScript scripts run with `vpx <file>` (for example
+  `vpx scripts/build-wordlist.ts`), with no `tsx` or `ts-node`.
 - **Language:** TypeScript with `strict` on; the domain layer uses no `any`.
-- **Package manager:** npm, with the Node version pinned in `.nvmrc`.
+- **Package manager:** npm, with Node 26 pinned in `.nvmrc`.
 - **Styling:** [Open Props](https://open-props.style) for design tokens
   (sizes, colours, fonts, shadows) and its normalise stylesheet. Plain CSS
   using nesting and custom properties, with no preprocessor. Light and dark
@@ -387,8 +404,9 @@ Keep it as simple as possible: HTML, CSS and TypeScript, with no UI framework.
 - **Runtime dependencies:** `lit`, `open-props`, plus `idb-keyval` (under
   1 KB) for the imported word list. Nothing else.
 - **Diagrams:** Mermaid code blocks in Markdown.
-- **npm scripts:** `dev`, `build`, `preview`, `test`, `lint`, `format`,
-  `build:wordlist`.
+- **npm scripts:** `dev`, `build`, `preview`, `check` (format check, lint and
+  types), `fix`, `lint`, `format`, `test` (single run), `test:watch`, and
+  later `build:wordlist`.
 
 ## Development workflow
 
@@ -397,7 +415,7 @@ Keep it as simple as possible: HTML, CSS and TypeScript, with no UI framework.
   Each branch is merged into `main` through a pull request before the next one
   starts.
 - **Commits:** Conventional Commits (`feat:`, `fix:`, `docs:`, `chore:`,
-  `test:`, …), one line in the imperative mood.
+  `test:`, ...), one line in the imperative mood.
 - `main` is never committed to directly.
 
 ## Testing
@@ -407,7 +425,7 @@ All tests run on Vitest through Vite+ (`vp test`).
 - **Domain unit tests (Node)**, the priority. Aim for full coverage of
   `src/domain`, including table-driven cases for:
   - letter values, blanks, and DL/TL on blanks (still 0)
-  - DW/TW applied after letter premiums, and stacking (×4, ×9, DW+TW = ×6)
+  - DW/TW applied after letter premiums, and stacking (x4, x9, DW+TW = x6)
   - several words in one turn, including a premium shared by two words
   - bingo bonus
   - pass, exchange and withdrawn turns
@@ -417,15 +435,16 @@ All tests run on Vitest through Vite+ (`vp test`).
 - **Persistence tests:** saving and loading round-trips, each schema
   migration, and handling corrupt data.
 - **Word list tests:** the built list is sorted, lowercase, `[a-z]{2,15}`
-  and free of duplicates. It contains sample British spellings (*colour*,
-  *recognise*) and excludes sample proper nouns. Lookups are case-insensitive.
+  and free of duplicates. It contains sample British spellings (_colour_,
+  _recognise_) and excludes sample proper nouns. Lookups are case-insensitive.
 - **Component tests:** Vitest browser mode with Playwright (Chromium) for
   organisms with real behaviour, such as `ss-turn-form` (tap cycling, live
   totals) and `ss-scoreboard`.
-- **End-to-end smoke test:** one Playwright flow (new game → three turns →
-  undo → end game → results) run against `vp preview`.
-- **CI:** every pull request runs format check, lint, typecheck, tests and
-  build. All must pass before merging.
+- **End-to-end smoke test:** one Playwright flow (new game -> three turns ->
+  undo -> end game -> results) run against `vp preview`.
+- **CI:** `.github/workflows/ci.yml` runs on every pull request and every push
+  to `main`: `npm ci`, `npm run check` (format, lint, types), `npm test`, then
+  `npm run build`. It's a required status check on `main`.
 
 ## Deployment
 
@@ -464,7 +483,7 @@ file.
   The app catches `beforeinstallprompt` and shows an "Install app" button on
   the home screen rather than relying on the browser's banner.
 - **iOS / iPadOS Safari:** there is no install prompt. The home screen shows a
-  one-off hint ("Share → Add to Home Screen") when the app is running in
+  one-off hint ("Share -> Add to Home Screen") when the app is running in
   Safari and not yet installed (`navigator.standalone === false`). The
   `apple-touch-icon` and `apple-mobile-web-app-*` meta tags are included.
 
@@ -476,13 +495,17 @@ file.
   happens. The settings screen offers "Download word list for offline use" so
   players can fetch it before going offline.
 - **Updates:** a new service worker waits rather than taking over straight
-  away. The app shows "New version available – reload" and only activates it
+  away. The app shows "New version available - reload" and only activates it
   when the player taps, so a game is never reloaded mid-turn.
-- **Tooling:** `vite-plugin-pwa` (Workbox) generates the manifest and service
-  worker. It is a Vite plugin, but it hasn't been checked against Vite+'s
-  Rolldown build. If it doesn't work, the fallback is a small hand-written
-  service worker with a build step that lists the hashed assets to precache.
-  This is the first thing to check in `scrabble-0008`.
+- **Tooling:** `vite-plugin-pwa` 2 (Workbox) generates the manifest and
+  service worker. A throwaway test during `scrabble-0002` confirmed it works
+  with Vite+ 1.8. It builds `manifest.webmanifest` and `sw.js` with `start_url`
+  and `scope` set from the `/scrabble-scorer/` base. In Chrome, the service
+  worker registered and precached the app shell under that scope. The
+  hand-written fallback is no longer expected to be needed. One note: its
+  `workbox-build` dependency brings in `glob` and `minimatch` versions with
+  moderate `npm audit` advisories. These are build-time only and not shipped
+  to users.
 
 ### Data durability
 
@@ -510,18 +533,18 @@ file.
 Each milestone is one `scrabble-NNNN` branch and pull request (see
 [Development workflow](#development-workflow)).
 
-| Branch          | Milestone                                                                  |
-| --------------- | -------------------------------------------------------------------------- |
-| `scrabble-0001` | Design document (this file)                                                |
-| `scrabble-0002` | Project scaffold: Vite+, TypeScript, Lit, Open Props, lint/format/test config, PR CI |
-| `scrabble-0003` | Domain: tiles, turn scoring, end game, reducer, with full unit tests       |
-| `scrabble-0004` | State: store, persistence, migrations                                      |
-| `scrabble-0005` | UI foundations: app shell, router, atoms, base styles; new-game and scoreboard pages |
-| `scrabble-0006` | Turn entry: word rows, premium toggles, live preview, edit and undo        |
-| `scrabble-0007` | End game and results; game history                                         |
+| Branch          | Milestone                                                                                        |
+| --------------- | ------------------------------------------------------------------------------------------------ |
+| `scrabble-0001` | Design document (this file)                                                                      |
+| `scrabble-0002` | Project scaffold: Vite+, TypeScript, Lit, Open Props, lint/format/test config, PR CI             |
+| `scrabble-0003` | Domain: tiles, turn scoring, end game, reducer, with full unit tests                             |
+| `scrabble-0004` | State: store, persistence, migrations                                                            |
+| `scrabble-0005` | UI foundations: app shell, router, atoms, base styles; new-game and scoreboard pages             |
+| `scrabble-0006` | Turn entry: word rows, premium toggles, live preview, edit and undo                              |
+| `scrabble-0007` | End game and results; game history                                                               |
 | `scrabble-0008` | Deployment and PWA: Pages workflow, base path, manifest, service worker, install hint, wake lock |
-| `scrabble-0009` | Stretch: word list build script, lookup page, inline word check            |
-| `scrabble-0010` | Stretch: settings and importing your own word list                         |
+| `scrabble-0009` | Stretch: word list build script, lookup page, inline word check                                  |
+| `scrabble-0010` | Stretch: settings and importing your own word list                                               |
 
 The core game is usable after `scrabble-0007` and published after
 `scrabble-0008`.
