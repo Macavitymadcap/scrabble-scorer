@@ -18,7 +18,8 @@ As a stretch goal, users can also check whether a word is legal (see
 - Correcting or undoing a turn.
 - End-game adjustments for unplayed tiles.
 - Resuming an unfinished game after the page is reloaded or closed.
-- Works offline after the first load.
+- An installable **Progressive Web App (PWA)** that works offline after the
+  first load (see [Progressive Web App](#progressive-web-app)).
 - English-language tile set only.
 
 ### Out of scope
@@ -64,7 +65,9 @@ later.
 5. If a newly placed tile on a premium square is part of two words, the premium
    counts in **both** words.
 6. The turn score is the sum of its words, plus a **50-point bingo bonus** if
-   the player used all 7 tiles.
+   the player used all 7 tiles. A **bingo** means playing every tile on your
+   rack in a single turn. The bonus is added once per turn, after all word
+   multipliers, and is not itself multiplied.
 7. The first move's centre star is a double word square. The player marks it
    like any other DW square.
 8. A **pass**, an **exchange** or a word **withdrawn after a challenge** scores
@@ -100,7 +103,12 @@ Turn entry is built for speed at the table, ideally on a phone.
    DW×2) for words that span two premium squares.
 5. **"Add word"** adds another word row for each cross-word. Each row shows its
    own subtotal.
-6. A **bingo toggle** adds 50.
+6. A **bingo toggle** adds the 50-point bonus. The player sets it by hand
+   because the app can't work out how many tiles were placed. Typed words
+   include tiles already on the board (extending `PLAY` to `PLAYING` is 7
+   letters but only 3 new tiles), and cross-words reuse the new tiles. Asking
+   players to mark every existing tile would allow automatic detection, but
+   would add taps to most turns to save one tap on the rare bingo.
 7. A **live preview** shows each word's score and the turn total as the player
    edits.
 8. **Confirm** saves the turn and moves to the next player. **Pass / exchange**
@@ -123,6 +131,7 @@ flowchart LR
   Scoreboard -->|tap a turn| EditTurn[Edit turn]
   EditTurn --> Scoreboard
   Scoreboard --> Lookup["Word lookup (stretch)"]
+  Home --> Settings
   Scoreboard --> EndGame[End game]
   EndGame --> Results[Final results]
   Results -->|play again| NewGame
@@ -142,8 +151,9 @@ flowchart LR
   anyone), then see the adjustments.
 - **Final results**: final scores, the winner, and the highest-scoring turn and
   word. From here players can start a new game.
-
-<!-- Sections below are still to be drafted (check-ins 2 and 3). -->
+- **Settings**: keep the screen awake during games (on by default). For the
+  stretch goal it also offers choosing the word list (built-in or imported),
+  importing or removing a list, and downloading it for offline use.
 
 ## Architecture
 
@@ -198,7 +208,7 @@ Atomic Design layout, with representative components:
 | Molecules | `ss-word-row` (tiles + multipliers + subtotal), `ss-player-field`, `ss-score-cell` |
 | Organisms | `ss-turn-form`, `ss-scoreboard`, `ss-player-list`, `ss-endgame-form`, `ss-word-check` |
 | Templates | `ss-app-shell` (header, main, footer actions)                            |
-| Pages     | `ss-page-home`, `ss-page-new-game`, `ss-page-scoreboard`, `ss-page-turn`, `ss-page-end-game`, `ss-page-results`, `ss-page-lookup` |
+| Pages     | `ss-page-home`, `ss-page-new-game`, `ss-page-scoreboard`, `ss-page-turn`, `ss-page-end-game`, `ss-page-results`, `ss-page-lookup`, `ss-page-settings` |
 
 ### Routing
 
@@ -392,17 +402,139 @@ Keep it as simple as possible: HTML, CSS and TypeScript, with no UI framework.
 
 ## Testing
 
-_To be drafted._
+All tests run on Vitest through Vite+ (`vp test`).
+
+- **Domain unit tests (Node)**, the priority. Aim for full coverage of
+  `src/domain`, including table-driven cases for:
+  - letter values, blanks, and DL/TL on blanks (still 0)
+  - DW/TW applied after letter premiums, and stacking (×4, ×9, DW+TW = ×6)
+  - several words in one turn, including a premium shared by two words
+  - bingo bonus
+  - pass, exchange and withdrawn turns
+  - end-game adjustments, with and without a player going out, and ties
+  - the reducer: add, edit and undo turns; round and next-player calculation
+  - known real-game turns as regression fixtures
+- **Persistence tests:** saving and loading round-trips, each schema
+  migration, and handling corrupt data.
+- **Word list tests:** the built list is sorted, lowercase, `[a-z]{2,15}`
+  and free of duplicates. It contains sample British spellings (*colour*,
+  *recognise*) and excludes sample proper nouns. Lookups are case-insensitive.
+- **Component tests:** Vitest browser mode with Playwright (Chromium) for
+  organisms with real behaviour, such as `ss-turn-form` (tap cycling, live
+  totals) and `ss-scoreboard`.
+- **End-to-end smoke test:** one Playwright flow (new game → three turns →
+  undo → end game → results) run against `vp preview`.
+- **CI:** every pull request runs format check, lint, typecheck, tests and
+  build. All must pass before merging.
 
 ## Deployment
 
 The app is wholly client-side, with no server; all game data is stored in the
-browser. It is a static site hosted on GitHub Pages. Cloudflare Pages is an
-option if needed, as long as it stays free, but the word lookup does not
-require it (see [Word lookup](#word-lookup-stretch-goal)).
+browser. It is a static site hosted on **GitHub Pages**. Cloudflare Pages
+remains an option if ever needed, but neither the word lookup nor anything
+else requires it.
 
-_To be expanded._
+- **Workflow:** a GitHub Actions workflow runs on every push to `main`. It
+  runs `npm ci`, then the same checks as PR CI, then the build. It uploads
+  `dist/` with `actions/upload-pages-artifact` and publishes it with
+  `actions/deploy-pages`. Pages is set to use "GitHub Actions" as its source.
+- **Base path:** the site is served from `/<repo-name>/`, so Vite's `base` is
+  set to match. Asset URLs, including the word list, use
+  `import.meta.env.BASE_URL` or Vite's `?url` imports, never absolute paths.
+  Hash routing means deep links need no `404.html` fallback.
+- **HTTPS:** GitHub Pages serves over HTTPS, which service workers and PWA
+  installation require.
+- **Cost:** GitHub Pages and Actions are free for public repositories.
+
+## Progressive Web App
+
+The app is a PWA so players can install it on a phone's home screen and use
+it at the table without a connection. It fits well: there's no server, the
+data is already local, and the only large asset (the word list) is a static
+file.
+
+### Installability
+
+- **Manifest** (`manifest.webmanifest`): `name`, `short_name`,
+  `display: standalone`, `orientation: portrait`, `theme_color` and
+  `background_color` taken from the Open Props palette, and icons at 192 px
+  and 512 px plus a maskable 512 px icon. `start_url` and `scope` are set to
+  the Pages base path (`/<repo-name>/`), not `/`.
+- **Android and desktop Chromium:** the browser offers its own install prompt.
+  The app catches `beforeinstallprompt` and shows an "Install app" button on
+  the home screen rather than relying on the browser's banner.
+- **iOS / iPadOS Safari:** there is no install prompt. The home screen shows a
+  one-off hint ("Share → Add to Home Screen") when the app is running in
+  Safari and not yet installed (`navigator.standalone === false`). The
+  `apple-touch-icon` and `apple-mobile-web-app-*` meta tags are included.
+
+### Service worker and caching
+
+- **Precache** the app shell (HTML, JS, CSS, icons, manifest) when the app is
+  installed, so everything except the word list works offline straight away.
+- **Word list:** cache-first at runtime. It is cached the first time a lookup
+  happens. The settings screen offers "Download word list for offline use" so
+  players can fetch it before going offline.
+- **Updates:** a new service worker waits rather than taking over straight
+  away. The app shows "New version available – reload" and only activates it
+  when the player taps, so a game is never reloaded mid-turn.
+- **Tooling:** `vite-plugin-pwa` (Workbox) generates the manifest and service
+  worker. It is a Vite plugin, but it hasn't been checked against Vite+'s
+  Rolldown build. If it doesn't work, the fallback is a small hand-written
+  service worker with a build step that lists the hashed assets to precache.
+  This is the first thing to check in `scrabble-0008`.
+
+### Data durability
+
+- The app calls `navigator.storage.persist()` when the first game starts. This
+  asks the browser not to clear the app's storage (`localStorage` and the
+  IndexedDB word list) when the device is low on space.
+- Safari may delete script-written storage for sites that haven't been used
+  for 7 days, but not for installed home-screen apps. The iOS install hint
+  mentions this ("install to keep your games safe").
+- Losing data costs little (an unfinished game), but this is why export and
+  import of game history is listed under [Future ideas](#future-ideas).
+
+### At the table
+
+- **Screen Wake Lock:** while a game is in progress, the app requests a
+  screen wake lock (`navigator.wakeLock.request('screen')`) so the phone
+  doesn't sleep between turns. It requests the lock again when the app comes
+  back into view, and skips this quietly where the API isn't supported.
+  Players can turn this off in settings.
+- Layout is portrait-first with large touch targets, at least 44 px, and
+  respects safe-area insets (`env(safe-area-inset-*)`) in standalone mode.
+
+## Implementation plan
+
+Each milestone is one `scrabble-NNNN` branch and pull request (see
+[Development workflow](#development-workflow)).
+
+| Branch          | Milestone                                                                  |
+| --------------- | -------------------------------------------------------------------------- |
+| `scrabble-0001` | Design document (this file)                                                |
+| `scrabble-0002` | Project scaffold: Vite+, TypeScript, Lit, Open Props, lint/format/test config, PR CI |
+| `scrabble-0003` | Domain: tiles, turn scoring, end game, reducer, with full unit tests       |
+| `scrabble-0004` | State: store, persistence, migrations                                      |
+| `scrabble-0005` | UI foundations: app shell, router, atoms, base styles; new-game and scoreboard pages |
+| `scrabble-0006` | Turn entry: word rows, premium toggles, live preview, edit and undo        |
+| `scrabble-0007` | End game and results; game history                                         |
+| `scrabble-0008` | Deployment and PWA: Pages workflow, base path, manifest, service worker, install hint, wake lock |
+| `scrabble-0009` | Stretch: word list build script, lookup page, inline word check            |
+| `scrabble-0010` | Stretch: settings and importing your own word list                         |
+
+The core game is usable after `scrabble-0007` and published after
+`scrabble-0008`.
 
 ## Future ideas
 
-_To be drafted._
+- Other languages' tile sets (the tile config is already separate).
+- A licensed Collins list, if a free or affordable licence for
+  non-commercial use turns out to exist.
+- Statistics across games: averages, best words, head-to-head records.
+- A turn timer or chess-style clock.
+- Recording challenges (who challenged and the result).
+- Sharing a final scoreboard as an image or link.
+- Exporting and importing game history as a JSON file (backup, or moving to
+  another device).
+- Recognising the board from a photo to enter turns automatically.
