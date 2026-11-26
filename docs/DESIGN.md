@@ -224,7 +224,9 @@ elements. Hash routes need no server-side fallback, which suits GitHub Pages.
 
 ```
 src/
-  domain/      tiles.ts, scoring.ts, endgame.ts, game.ts (reducer), types.ts
+  domain/      tiles.ts, scoring.ts, endgame.ts, validation.ts,
+               game.ts (create, reducer, selectors), types.ts,
+               testing.ts (test helpers)
   state/       store.ts, storage.ts (persistence + migrations)
   words/       lexicon.ts (load + lookup), import.ts (user list, IndexedDB)
   ui/
@@ -252,13 +254,16 @@ interface TilePlay {
 
 interface WordPlay {
   tiles: TilePlay[];
-  doubleWords: number; // count of DW squares covered this turn (0-2)
-  tripleWords: number; // count of TW squares covered this turn (0-2)
+  doubleWords: number; // DW squares covered this turn
+  tripleWords: number; // TW squares covered this turn (at most 3 word squares in total)
 }
 
-type Turn =
-  | { id: string; playerId: string; kind: 'play'; words: WordPlay[]; bingo: boolean; at: string }
-  | { id: string; playerId: string; kind: 'pass' | 'exchange' | 'withdrawn'; at: string };
+// A turn as entered; the reducer adds id, playerId and at.
+type TurnInput =
+  | { kind: 'play'; words: WordPlay[]; bingo: boolean }
+  | { kind: 'pass' | 'exchange' | 'withdrawn' };
+
+type Turn = TurnInput & { id: string; playerId: string; at: string };
 
 interface Player {
   id: string;
@@ -289,9 +294,41 @@ interface Game {
   player** is `players[turns.length % players.length]`.
 - **Undo** removes the last turn. **Edit** replaces a turn's content but keeps
   its `id`, `playerId` and position.
-- State changes go through a reducer, `(game, action) => game`, with actions
-  such as `startGame`, `addTurn`, `editTurn`, `undoTurn`, `finishGame` and
-  `reopenGame`.
+- A game is created with `createGame({ id, at, players })`. After that, state
+  changes go through a reducer, `reduce(game, action) => game`, with the
+  actions `addTurn`, `editTurn`, `undoTurn`, `finishGame` and `reopenGame`.
+  (The plan had a `startGame` action. A separate function avoids a reducer
+  over `Game | null`.)
+- **No `switch` on action type or turn kind.** Each is handled by a strategy
+  map typed per variant, so every handler gets its own narrowed type with no
+  casts:
+  - `ACTION_HANDLERS: { [T in GameActionType]: (game, action: GameActionOf<T>) => Game }`,
+    with `reduce` looking up `ACTION_HANDLERS[action.type]`.
+  - `TurnStrategies<R>` and `byTurnKind(strategies, turn)` for anything that
+    varies by turn kind, such as scoring (`TURN_SCORERS`) and validation
+    (`TURN_VALIDATORS`).
+
+  Adding a new action or turn kind is then a type error until every map
+  handles it.
+
+- **Ids and timestamps are passed in** with each action, never generated in
+  the domain, so the reducer is pure and deterministic. The store supplies
+  them.
+- The reducer returns a new game and never mutates the old one. Invalid input
+  throws a `GameError` with a message fit to show the player.
+- **Validation:**
+  - Players: 2-4, each with a name (trimmed), no duplicate names in any case.
+  - Words: 2-15 letters A-Z.
+  - A turn: at most 8 words, the main word plus one cross-word per tile.
+  - Word squares: at most 3 per word, such as a row of 15 across three TWs.
+  - A bingo needs a word of at least 7 letters.
+  - End game: up to 7 tiles left per player (A-Z, `?` for a blank), and the
+    player who went out has none left.
+  - Nothing can change in a finished game until it is reopened.
+- Selectors derive everything else: `nextPlayer`, `currentRound`,
+  `scoredTurns`, `scoreboardRounds`, `playerTotals` (including end-game
+  adjustments), `standings` (ranking and tied leaders), `bestTurn` and
+  `bestWord`.
 
 ### Persistence
 
@@ -405,8 +442,10 @@ Keep it as simple as possible: HTML, CSS and TypeScript, with no UI framework.
   1 KB) for the imported word list. Nothing else.
 - **Diagrams:** Mermaid code blocks in Markdown.
 - **npm scripts:** `dev`, `build`, `preview`, `check` (format check, lint and
-  types), `fix`, `lint`, `format`, `test` (single run), `test:watch`, and
-  later `build:wordlist`.
+  types), `fix`, `lint`, `format`, `test` (single run), `test:watch`,
+  `test:coverage`, and later `build:wordlist`.
+- **Dev dependencies:** `vite-plus` and `@vitest/coverage-v8`, pinned to
+  the Vitest version Vite+ bundles.
 
 ## Development workflow
 
@@ -418,12 +457,42 @@ Keep it as simple as possible: HTML, CSS and TypeScript, with no UI framework.
   `test:`, ...), one line in the imperative mood.
 - `main` is never committed to directly.
 
+## Code style
+
+- Arrow functions (`const fn = (...) => ...`) rather than `function`
+  declarations, except where `this` matters (Lit component classes and their
+  methods).
+- Lookup maps and strategy functions rather than `switch` statements or
+  `if`/`else if` chains. Single guard clauses (early return or throw) are
+  fine. Maps over a union are typed per variant (see
+  [Types](#types)) so handlers need no casts.
+
 ## Testing
 
 All tests run on Vitest through Vite+ (`vp test`).
 
-- **Domain unit tests (Node)**, the priority. Aim for full coverage of
-  `src/domain`, including table-driven cases for:
+**Conventions:**
+
+- Every non-trivial function has tests, including validation and test
+  helpers. Each source file has a matching `*.test.ts`.
+- Cover the happy path and, especially, the edge cases that break things:
+  boundaries (2 and 15 letters, 2 and 4 players, 7 and 8 tiles), empty input,
+  invalid characters, duplicates, and impossible states.
+- One behaviour per test with a descriptive name, grouped in `describe`
+  blocks (for example `accepts` / `rejects`). Tables (`it.each`) only for
+  simple input -> output data.
+- Tests use `// Arrange`, `// Act` and `// Assert` comments, each its own
+  statement(s): inputs are built as named variables in Arrange; Act is a
+  single call assigned to a variable (`const act = () => fn(input)` for
+  throws); Assert only holds `expect`s. Sections are never merged.
+- Prose and comments use ASCII. Test inputs that need a specific non-ASCII
+  character, such as `'É'` for rejecting accented letters, use it directly.
+
+- **Domain unit tests (Node)**, the priority. Coverage of `src/domain` is
+  held at **100%** (statements, branches, functions, lines) by a threshold in
+  `vite.config.ts`, so CI fails if it drops. Tests use a compact word helper
+  (`src/domain/testing.ts`): `word('Z3AP', { dw: 1 })` is Z on a TL, then A and
+  P, on a DW square; lower case means a blank. Table-driven cases cover:
   - letter values, blanks, and DL/TL on blanks (still 0)
   - DW/TW applied after letter premiums, and stacking (x4, x9, DW+TW = x6)
   - several words in one turn, including a premium shared by two words
@@ -443,7 +512,7 @@ All tests run on Vitest through Vite+ (`vp test`).
 - **End-to-end smoke test:** one Playwright flow (new game -> three turns ->
   undo -> end game -> results) run against `vp preview`.
 - **CI:** `.github/workflows/ci.yml` runs on every pull request and every push
-  to `main`: `npm ci`, `npm run check` (format, lint, types), `npm test`, then
+  to `main`: `npm ci`, `npm run check` (format, lint, types), `npm run test:coverage`, then
   `npm run build`. It's a required status check on `main`.
 
 ## Deployment

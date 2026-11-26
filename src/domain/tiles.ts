@@ -38,10 +38,10 @@ export const TILES: Readonly<Record<string, TileSpec>> = {
 };
 
 /** Face value of a letter (case-insensitive). Throws for anything other than A-Z. */
-export function letterPoints(letter: string): number {
+export const letterPoints = (letter: string): number => {
   const spec = TILES[letter.toUpperCase()];
   if (!spec) {
     throw new RangeError(`Not a tile letter: ${JSON.stringify(letter)}`);
   }
   return spec.points;
-}
+};
