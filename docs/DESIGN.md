@@ -1,0 +1,540 @@
+# Scrabble Scorer: Design
+
+This application helps players keep score in a real-world game of Scrabble,
+played on a physical board. Users set up a game with 2–4 players. On each turn
+they enter the tiles played and the app calculates the score. It shows the
+current round's scores and a running total for every player.
+
+As a stretch goal, users can also check whether a word is legal (see
+[Word lookup](#word-lookup-stretch-goal)).
+
+## Overview and scope
+
+### In scope
+
+- One game at a time with 2–4 named players, in a fixed turn order.
+- Scoring each turn from typed words with premium-square and blank markers.
+- Running totals, a per-round breakdown and a history of turns.
+- Correcting or undoing a turn.
+- End-game adjustments for unplayed tiles.
+- Resuming an unfinished game after the page is reloaded or closed.
+- An installable **Progressive Web App (PWA)** that works offline after the
+  first load (see [Progressive Web App](#progressive-web-app)).
+- English-language tile set only.
+
+### Out of scope
+
+- Modelling the board: the app does not know where tiles are, so it cannot
+  check placement or find cross-words automatically.
+- Tracking each player's rack, or the tile bag beyond simple counts.
+- AI opponents, move suggestions and anagram solving.
+- Accounts, sync between devices and online multiplayer.
+
+## Game rules implemented
+
+### Tiles
+
+| Points | Letters                       |
+| ------ | ----------------------------- |
+| 0      | blank (×2)                    |
+| 1      | A, E, I, O, U, L, N, S, T, R  |
+| 2      | D, G                          |
+| 3      | B, C, M, P                    |
+| 4      | F, H, V, W, Y                 |
+| 5      | K                             |
+| 8      | J, X                          |
+| 10     | Q, Z                          |
+
+Distribution (100 tiles): A×9, B×2, C×2, D×4, E×12, F×2, G×3, H×2, I×9, J×1,
+K×1, L×4, M×2, N×6, O×8, P×2, Q×1, R×6, S×4, T×6, U×4, V×2, W×2, X×1, Y×2,
+Z×1, blank×2.
+
+These values live in a single config module so another tile set can be added
+later.
+
+### Scoring a turn
+
+1. A turn is one or more **words**: the main word plus any cross-words formed.
+2. Each letter in a word scores its face value, or **0 if it is a blank**. A
+   blank keeps scoring 0 in later words that reuse it.
+3. **Double and triple letter** squares multiply a letter's value. They count
+   only for tiles placed this turn.
+4. **Double and triple word** squares multiply the word's total after letter
+   premiums. They count only for tiles placed this turn. Several stack by
+   multiplying: two DW squares give ×4, two TW squares give ×9.
+5. If a newly placed tile on a premium square is part of two words, the premium
+   counts in **both** words.
+6. The turn score is the sum of its words, plus a **50-point bingo bonus** if
+   the player used all 7 tiles. A **bingo** means playing every tile on your
+   rack in a single turn. The bonus is added once per turn, after all word
+   multipliers, and is not itself multiplied.
+7. The first move's centre star is a double word square. The player marks it
+   like any other DW square.
+8. A **pass**, an **exchange** or a word **withdrawn after a challenge** scores
+   0 but still counts as the player's turn.
+
+The app does not know which tiles are new. The player shows this by marking
+premiums only on the squares covered this turn.
+
+### End of game
+
+The game ends when a player uses their last tile and the bag is empty, or when
+the players end it by hand (for example after six scoreless turns in a row).
+
+- Each player with tiles left enters them. The value of those tiles is
+  **subtracted** from their score.
+- If a player went out, the total of everyone else's unplayed tiles is
+  **added** to that player's score.
+- If nobody went out, every player loses the value of their own tiles and
+  nobody gains.
+- The winner is the highest final score. Ties are shown as ties.
+
+## Turn input UX
+
+Turn entry is built for speed at the table, ideally on a phone.
+
+1. The screen shows the **current player** and the round number.
+2. The player **types the main word**, A–Z only. Typing changes it to upper
+   case and shows one tile per letter.
+3. **Tapping a tile** cycles it through: normal → DL → TL → normal. A separate
+   **long-press or "blank" toggle** marks the tile as a blank. Each state looks
+   distinct, colour-coded to match the board.
+4. **Word multiplier** buttons toggle DW and TW, with a count (for example
+   DW×2) for words that span two premium squares.
+5. **"Add word"** adds another word row for each cross-word. Each row shows its
+   own subtotal.
+6. A **bingo toggle** adds the 50-point bonus. The player sets it by hand
+   because the app can't work out how many tiles were placed. Typed words
+   include tiles already on the board (extending `PLAY` to `PLAYING` is 7
+   letters but only 3 new tiles), and cross-words reuse the new tiles. Asking
+   players to mark every existing tile would allow automatic detection, but
+   would add taps to most turns to save one tap on the rare bingo.
+7. A **live preview** shows each word's score and the turn total as the player
+   edits.
+8. **Confirm** saves the turn and moves to the next player. **Pass / exchange**
+   records a 0-point turn in one tap.
+9. **Undo last turn** and **edit any previous turn** recalculate all totals.
+   Scores are always worked out from the stored turns, never stored as totals.
+
+When the word lookup is available, each word row shows a small indicator
+(valid, unknown or not yet checked). It is **advisory only** and never blocks
+saving a turn, because players may follow house rules.
+
+## Screens and flows
+
+```mermaid
+flowchart LR
+  Home -->|new| NewGame[New game]
+  Home -->|resume| Scoreboard
+  NewGame --> Scoreboard
+  Scoreboard <--> TurnEntry[Turn entry]
+  Scoreboard -->|tap a turn| EditTurn[Edit turn]
+  EditTurn --> Scoreboard
+  Scoreboard --> Lookup["Word lookup (stretch)"]
+  Home --> Settings
+  Scoreboard --> EndGame[End game]
+  EndGame --> Results[Final results]
+  Results -->|play again| NewGame
+```
+
+- **Home**: start a new game, or resume the game in progress if there is one.
+  Starting a new game while one is in progress asks for confirmation first.
+- **New game**: enter 2–4 player names, reorder them to set the turn order,
+  then start.
+- **Scoreboard**: the main screen. It shows a table of rounds (rows) by players
+  (columns), each player's running total, and who plays next. Tapping a cell
+  opens that turn to edit.
+- **Turn entry**: as described in [Turn input UX](#turn-input-ux).
+- **Word lookup** (stretch): a free-text check for one word, reachable at any
+  time.
+- **End game**: enter each player's unplayed tiles, choose who went out (if
+  anyone), then see the adjustments.
+- **Final results**: final scores, the winner, and the highest-scoring turn and
+  word. From here players can start a new game.
+- **Settings**: keep the screen awake during games (on by default). For the
+  stretch goal it also offers choosing the word list (built-in or imported),
+  importing or removing a list, and downloading it for offline use.
+
+## Architecture
+
+The app has three layers, each depending only on the one below it:
+
+1. **Domain** (`src/domain/`): pure TypeScript with no DOM or storage access.
+   It covers tile values, turn scoring, end-game adjustments and the game
+   reducer. All the rules live here, and nearly all the tests target it.
+2. **State and services** (`src/state/`, `src/words/`): a small store that
+   holds the current `Game`, applies actions through the domain reducer, saves
+   to `localStorage` and notifies subscribers. The word list loader also lives
+   here.
+3. **UI** (`src/ui/`): web components built with [Lit](https://lit.dev).
+
+```mermaid
+flowchart TD
+  UI["UI: Lit components (src/ui)"] -->|actions| State["State: store + persistence (src/state)"]
+  State -->|game snapshot| UI
+  UI -->|lookup| Words["Word list (src/words)"]
+  State --> Domain["Domain: rules + reducer (src/domain)"]
+  State --> LS[(localStorage)]
+  Words --> IDB[(IndexedDB: imported list)]
+  Words --> File[/"en-gb.txt (static asset)"/]
+```
+
+### UI components
+
+- Components extend `LitElement`, use Lit's `html` templates for rendering and
+  declare reactive properties for their inputs. Each component keeps its
+  template, behaviour and styles in one file.
+- **Shadow DOM** (Lit's default) scopes each component's styles. Open Props
+  tokens are CSS custom properties, so they pass through shadow boundaries.
+  Shared base styles (reset, typography, focus ring) live in one Lit `css`
+  module that every component includes.
+- Data flows down through properties. User actions go up as `CustomEvent`s
+  with `bubbles: true, composed: true` so they cross shadow boundaries.
+- **Only pages talk to the store**, through a small Lit reactive controller
+  (`StoreController`) that subscribes to the store and triggers a re-render.
+  Atoms, molecules and organisms stay presentational and easy to test in
+  isolation.
+- Inputs are native elements inside components. Components report their values
+  through events rather than as form-associated custom elements, so the app
+  doesn't need `ElementInternals`.
+- Decorators use the TC39 standard syntax that Lit 3 supports
+  (`@property() accessor name = ''`). `experimentalDecorators` stays off.
+
+Atomic Design layout, with representative components:
+
+| Level     | Examples                                                                 |
+| --------- | ------------------------------------------------------------------------ |
+| Atoms     | `ss-tile`, `ss-button`, `ss-toggle`, `ss-badge`, `ss-text-input`         |
+| Molecules | `ss-word-row` (tiles + multipliers + subtotal), `ss-player-field`, `ss-score-cell` |
+| Organisms | `ss-turn-form`, `ss-scoreboard`, `ss-player-list`, `ss-endgame-form`, `ss-word-check` |
+| Templates | `ss-app-shell` (header, main, footer actions)                            |
+| Pages     | `ss-page-home`, `ss-page-new-game`, `ss-page-scoreboard`, `ss-page-turn`, `ss-page-end-game`, `ss-page-results`, `ss-page-lookup`, `ss-page-settings` |
+
+### Routing
+
+A small **hash router** (`#/scoreboard`, `#/turn/12`) maps routes to page
+elements. Hash routes need no server-side fallback, which suits GitHub Pages.
+
+### Source layout
+
+```
+src/
+  domain/      tiles.ts, scoring.ts, endgame.ts, game.ts (reducer), types.ts
+  state/       store.ts, storage.ts (persistence + migrations)
+  words/       lexicon.ts (load + lookup), import.ts (user list, IndexedDB)
+  ui/
+    atoms/ molecules/ organisms/ templates/ pages/
+  styles/      global.css (Open Props imports, tokens, base styles)
+  router.ts
+  main.ts
+scripts/
+  build-wordlist.ts
+```
+
+## Data model and persistence
+
+### Types
+
+```ts
+type Premium = 'none' | 'DL' | 'TL';
+
+interface TilePlay {
+  letter: string;       // 'A'–'Z'
+  blank: boolean;       // scores 0
+  premium: Premium;     // only set on tiles placed this turn
+}
+
+interface WordPlay {
+  tiles: TilePlay[];
+  doubleWords: number;  // count of DW squares covered this turn (0–2)
+  tripleWords: number;  // count of TW squares covered this turn (0–2)
+}
+
+type Turn =
+  | { id: string; playerId: string; kind: 'play'; words: WordPlay[]; bingo: boolean; at: string }
+  | { id: string; playerId: string; kind: 'pass' | 'exchange' | 'withdrawn'; at: string };
+
+interface Player { id: string; name: string }
+
+interface EndGame {
+  wentOutPlayerId: string | null;
+  remaining: Record<string, string>; // playerId -> letters left, '?' for a blank
+}
+
+interface Game {
+  schemaVersion: 1;
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  players: Player[];   // in turn order
+  turns: Turn[];       // in play order
+  status: 'active' | 'finished';
+  endGame?: EndGame;
+}
+```
+
+- **Only inputs are stored.** Word scores, turn scores, totals and round
+  numbers are worked out by domain functions, so editing an old turn can never
+  leave stale totals.
+- The **round** is `Math.floor(turnIndex / players.length) + 1`. The **next
+  player** is `players[turns.length % players.length]`.
+- **Undo** removes the last turn. **Edit** replaces a turn's content but keeps
+  its `id`, `playerId` and position.
+- State changes go through a reducer, `(game, action) => game`, with actions
+  such as `startGame`, `addTurn`, `editTurn`, `undoTurn`, `finishGame` and
+  `reopenGame`.
+
+### Persistence
+
+- Storage keys: `scrabble-scorer:current` for the active game and
+  `scrabble-scorer:history` for up to 20 finished games, oldest dropped first.
+- The store saves after every action. A game is a few KB, well inside the
+  `localStorage` limit.
+- Every stored object has a `schemaVersion`. On load, `migrate()` runs each
+  version step in turn. If the data can't be read or migrated, it is copied to
+  `scrabble-scorer:corrupt-<timestamp>` and the app starts fresh with a notice
+  rather than crashing.
+- If the game is open in several tabs, the last write wins. Syncing between
+  tabs is out of scope.
+- The word list is **not** stored in `localStorage` (see below).
+
+## Word lookup (stretch goal)
+
+### Findings
+
+- **No free API can give an authoritative Scrabble answer.** General
+  dictionary APIs such as dictionaryapi.dev and Merriam-Webster are not
+  Scrabble word lists. Their availability isn't guaranteed, and keyed APIs
+  would expose the key in a client-side app.
+- **The official lists are copyrighted.** Collins Scrabble Words (used in the
+  UK, about 280k words) belongs to HarperCollins. The NASPA Word List (North
+  America) is licensed through NASPA. Neither can be redistributed in this app.
+- **Freely redistributable alternatives:**
+  - **ENABLE**: public domain, about 173k words, built for word games.
+  - **SCOWL / VarCon**: a permissive licence (keep the copyright notice), with
+    British spelling variants.
+- **Cloudflare is not needed.** A server-side lookup on the free Workers tier
+  would work, but it adds nothing over a static file. It doesn't solve
+  licensing, and it makes offline use harder.
+
+### Approach: a built-in British English list
+
+A one-off build script, `scripts/build-wordlist.ts`, creates the bundled list:
+
+1. Take ENABLE, normalise it to lowercase and keep only `^[a-z]{2,15}$`.
+2. Add British spelling variants from VarCon whose American form is in ENABLE,
+   such as `-ise`/`-isation`, `-our`, doubled `-ll-`, `-tre` and `ae`/`oe`.
+   Using these explicit pairs avoids picking up SCOWL's proper nouns,
+   abbreviations and modern slang.
+3. Optionally merge a small hand-curated `extras.txt` for well-known gaps
+   (ENABLE predates words such as QI and ZA).
+4. Write `src/words/en-gb.txt` (one word per line, sorted) and
+   `THIRD_PARTY_NOTICES.md` with the ENABLE and SCOWL attributions. Both are
+   committed, so a normal build never downloads anything.
+
+A prototype run measured these figures:
+
+| Measure                                   | Value                    |
+| ----------------------------------------- | ------------------------ |
+| ENABLE after filtering                    | 168,551 words            |
+| British variants added (heuristic)        | ~500 (e.g. *recognise*, *kilometres*, *orthopaedist*) |
+| Final list                                | ~169k words, ~1.7 MB raw |
+| Gzipped (as served by GitHub Pages)       | ~0.44 MB                 |
+
+ENABLE already contains many British spellings (*colour*, *realise*,
+*theatre*), so the gap is mostly derived forms.
+
+**Known limitation:** this fixes spelling, not vocabulary. Collins includes
+about 100k more words, many of them Scots, Commonwealth or obscure, so some
+words valid in Collins will be reported as "not found". The UI wording should
+reflect this: "not in word list", not "invalid".
+
+### Optional: import your own list
+
+On a settings screen, a user can import a plain-text word list they own, such
+as Collins or NWL, one word per line. It is normalised with the same filter
+and stored in **IndexedDB** on that device only. It is never uploaded,
+committed or hosted. The user can choose between the built-in list and the
+imported one, and remove the imported list at any time.
+
+### Loading and lookup
+
+- The list is imported with Vite's `?url` suffix, so it gets a content-hashed
+  file name and is cached long-term.
+- It is fetched **lazily** the first time a lookup is needed, so it doesn't
+  slow down the first load. The UI shows "loading word list…" until it is
+  ready.
+- It is parsed into a `Set<string>` for O(1) lookups. If memory turns out to
+  be a problem on low-end phones, a sorted array with binary search is the
+  fallback.
+- The service worker (see [Deployment](#deployment)) caches it for offline use.
+
+## Tech stack and tooling
+
+Keep it as simple as possible: HTML, CSS and TypeScript, with no UI framework.
+
+- **Toolchain:** [Vite+](https://github.com/voidzero-dev/vite-plus) via its `vp` CLI. It covers the
+  dev server, build (Rolldown), tests (Vitest), linting (Oxlint) and formatting
+  (Oxfmt).
+- **Language:** TypeScript with `strict` on; the domain layer uses no `any`.
+- **Package manager:** npm, with the Node version pinned in `.nvmrc`.
+- **Styling:** [Open Props](https://open-props.style) for design tokens
+  (sizes, colours, fonts, shadows) and its normalise stylesheet. Plain CSS
+  using nesting and custom properties, with no preprocessor. Light and dark
+  themes use `prefers-color-scheme`. Premium colours match the board: DL light
+  blue, TL dark blue, DW pink, TW red.
+- **UI library:** Lit 3.
+- **Runtime dependencies:** `lit`, `open-props`, plus `idb-keyval` (under
+  1 KB) for the imported word list. Nothing else.
+- **Diagrams:** Mermaid code blocks in Markdown.
+- **npm scripts:** `dev`, `build`, `preview`, `test`, `lint`, `format`,
+  `build:wordlist`.
+
+## Development workflow
+
+- **Branches:** one branch per unit of work, named `scrabble-NNNN` with the
+  number going up by one each time (`scrabble-0001` is design and planning).
+  Each branch is merged into `main` through a pull request before the next one
+  starts.
+- **Commits:** Conventional Commits (`feat:`, `fix:`, `docs:`, `chore:`,
+  `test:`, …), one line in the imperative mood.
+- `main` is never committed to directly.
+
+## Testing
+
+All tests run on Vitest through Vite+ (`vp test`).
+
+- **Domain unit tests (Node)**, the priority. Aim for full coverage of
+  `src/domain`, including table-driven cases for:
+  - letter values, blanks, and DL/TL on blanks (still 0)
+  - DW/TW applied after letter premiums, and stacking (×4, ×9, DW+TW = ×6)
+  - several words in one turn, including a premium shared by two words
+  - bingo bonus
+  - pass, exchange and withdrawn turns
+  - end-game adjustments, with and without a player going out, and ties
+  - the reducer: add, edit and undo turns; round and next-player calculation
+  - known real-game turns as regression fixtures
+- **Persistence tests:** saving and loading round-trips, each schema
+  migration, and handling corrupt data.
+- **Word list tests:** the built list is sorted, lowercase, `[a-z]{2,15}`
+  and free of duplicates. It contains sample British spellings (*colour*,
+  *recognise*) and excludes sample proper nouns. Lookups are case-insensitive.
+- **Component tests:** Vitest browser mode with Playwright (Chromium) for
+  organisms with real behaviour, such as `ss-turn-form` (tap cycling, live
+  totals) and `ss-scoreboard`.
+- **End-to-end smoke test:** one Playwright flow (new game → three turns →
+  undo → end game → results) run against `vp preview`.
+- **CI:** every pull request runs format check, lint, typecheck, tests and
+  build. All must pass before merging.
+
+## Deployment
+
+The app is wholly client-side, with no server; all game data is stored in the
+browser. It is a static site hosted on **GitHub Pages**. Cloudflare Pages
+remains an option if ever needed, but neither the word lookup nor anything
+else requires it.
+
+- **Workflow:** a GitHub Actions workflow runs on every push to `main`. It
+  runs `npm ci`, then the same checks as PR CI, then the build. It uploads
+  `dist/` with `actions/upload-pages-artifact` and publishes it with
+  `actions/deploy-pages`. Pages is set to use "GitHub Actions" as its source.
+- **Base path:** the site is served from `/<repo-name>/`, so Vite's `base` is
+  set to match. Asset URLs, including the word list, use
+  `import.meta.env.BASE_URL` or Vite's `?url` imports, never absolute paths.
+  Hash routing means deep links need no `404.html` fallback.
+- **HTTPS:** GitHub Pages serves over HTTPS, which service workers and PWA
+  installation require.
+- **Cost:** GitHub Pages and Actions are free for public repositories.
+
+## Progressive Web App
+
+The app is a PWA so players can install it on a phone's home screen and use
+it at the table without a connection. It fits well: there's no server, the
+data is already local, and the only large asset (the word list) is a static
+file.
+
+### Installability
+
+- **Manifest** (`manifest.webmanifest`): `name`, `short_name`,
+  `display: standalone`, `orientation: portrait`, `theme_color` and
+  `background_color` taken from the Open Props palette, and icons at 192 px
+  and 512 px plus a maskable 512 px icon. `start_url` and `scope` are set to
+  the Pages base path (`/<repo-name>/`), not `/`.
+- **Android and desktop Chromium:** the browser offers its own install prompt.
+  The app catches `beforeinstallprompt` and shows an "Install app" button on
+  the home screen rather than relying on the browser's banner.
+- **iOS / iPadOS Safari:** there is no install prompt. The home screen shows a
+  one-off hint ("Share → Add to Home Screen") when the app is running in
+  Safari and not yet installed (`navigator.standalone === false`). The
+  `apple-touch-icon` and `apple-mobile-web-app-*` meta tags are included.
+
+### Service worker and caching
+
+- **Precache** the app shell (HTML, JS, CSS, icons, manifest) when the app is
+  installed, so everything except the word list works offline straight away.
+- **Word list:** cache-first at runtime. It is cached the first time a lookup
+  happens. The settings screen offers "Download word list for offline use" so
+  players can fetch it before going offline.
+- **Updates:** a new service worker waits rather than taking over straight
+  away. The app shows "New version available – reload" and only activates it
+  when the player taps, so a game is never reloaded mid-turn.
+- **Tooling:** `vite-plugin-pwa` (Workbox) generates the manifest and service
+  worker. It is a Vite plugin, but it hasn't been checked against Vite+'s
+  Rolldown build. If it doesn't work, the fallback is a small hand-written
+  service worker with a build step that lists the hashed assets to precache.
+  This is the first thing to check in `scrabble-0008`.
+
+### Data durability
+
+- The app calls `navigator.storage.persist()` when the first game starts. This
+  asks the browser not to clear the app's storage (`localStorage` and the
+  IndexedDB word list) when the device is low on space.
+- Safari may delete script-written storage for sites that haven't been used
+  for 7 days, but not for installed home-screen apps. The iOS install hint
+  mentions this ("install to keep your games safe").
+- Losing data costs little (an unfinished game), but this is why export and
+  import of game history is listed under [Future ideas](#future-ideas).
+
+### At the table
+
+- **Screen Wake Lock:** while a game is in progress, the app requests a
+  screen wake lock (`navigator.wakeLock.request('screen')`) so the phone
+  doesn't sleep between turns. It requests the lock again when the app comes
+  back into view, and skips this quietly where the API isn't supported.
+  Players can turn this off in settings.
+- Layout is portrait-first with large touch targets, at least 44 px, and
+  respects safe-area insets (`env(safe-area-inset-*)`) in standalone mode.
+
+## Implementation plan
+
+Each milestone is one `scrabble-NNNN` branch and pull request (see
+[Development workflow](#development-workflow)).
+
+| Branch          | Milestone                                                                  |
+| --------------- | -------------------------------------------------------------------------- |
+| `scrabble-0001` | Design document (this file)                                                |
+| `scrabble-0002` | Project scaffold: Vite+, TypeScript, Lit, Open Props, lint/format/test config, PR CI |
+| `scrabble-0003` | Domain: tiles, turn scoring, end game, reducer, with full unit tests       |
+| `scrabble-0004` | State: store, persistence, migrations                                      |
+| `scrabble-0005` | UI foundations: app shell, router, atoms, base styles; new-game and scoreboard pages |
+| `scrabble-0006` | Turn entry: word rows, premium toggles, live preview, edit and undo        |
+| `scrabble-0007` | End game and results; game history                                         |
+| `scrabble-0008` | Deployment and PWA: Pages workflow, base path, manifest, service worker, install hint, wake lock |
+| `scrabble-0009` | Stretch: word list build script, lookup page, inline word check            |
+| `scrabble-0010` | Stretch: settings and importing your own word list                         |
+
+The core game is usable after `scrabble-0007` and published after
+`scrabble-0008`.
+
+## Future ideas
+
+- Other languages' tile sets (the tile config is already separate).
+- A licensed Collins list, if a free or affordable licence for
+  non-commercial use turns out to exist.
+- Statistics across games: averages, best words, head-to-head records.
+- A turn timer or chess-style clock.
+- Recording challenges (who challenged and the result).
+- Sharing a final scoreboard as an image or link.
+- Exporting and importing game history as a JSON file (backup, or moving to
+  another device).
+- Recognising the board from a photo to enter turns automatically.

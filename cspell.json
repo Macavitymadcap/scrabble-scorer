@@ -2,16 +2,23 @@
   "version": "0.2",
   "language": "en-GB",
   "words": [
+    "beforeinstallprompt",
     "dictionaryapi",
     "isation",
     "keyval",
+    "maskable",
     "NASPA",
     "Oxfmt",
     "Oxlint",
     "Rolldown",
     "SCOWL",
     "VarCon",
-    "wordlist"
+    "wordlist",
+    "Workbox"
   ],
-  "ignorePaths": ["node_modules", "dist", "src/words/*.txt"]
+  "ignorePaths": [
+    "node_modules",
+    "dist",
+    "src/words/*.txt"
+  ]
 }
