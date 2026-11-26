@@ -9,10 +9,11 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],
-      exclude: ['src/**/*.test.ts', 'src/domain/testing.ts'],
+      exclude: ['src/**/*.test.ts', 'src/**/testing.ts'],
       thresholds: {
-        // The rules live here; keep them fully covered.
+        // The rules and their persistence; keep them fully covered.
         'src/domain/**': { 100: true },
+        'src/state/**': { 100: true },
       },
     },
   },
