@@ -25,24 +25,19 @@ const players = [
 const pass: TurnInput = { kind: 'pass' };
 const noTilesLeft: EndGame = { wentOutPlayerId: null, remaining: {} };
 
-function newGame(): Game {
-  return createGame({ id: 'g1', at: T0, players });
-}
+const newGame = (): Game => createGame({ id: 'g1', at: T0, players });
 
 /** Adds a turn with a predictable id (t1, t2, ...) and time (at-1, at-2, ...). */
-function addTurn(game: Game, turn: TurnInput): Game {
+const addTurn = (game: Game, turn: TurnInput): Game => {
   const n = game.turns.length + 1;
   return reduce(game, { type: 'addTurn', id: `t${n}`, at: `at-${n}`, turn });
-}
+};
 
 /** A new game with these turns played in order: Ann, Bob, Cat, Ann, ... */
-function withTurns(...turns: TurnInput[]): Game {
-  return turns.reduce(addTurn, newGame());
-}
+const withTurns = (...turns: TurnInput[]): Game => turns.reduce(addTurn, newGame());
 
-function finish(game: Game, endGame: EndGame = noTilesLeft): Game {
-  return reduce(game, { type: 'finishGame', at: 'end', endGame });
-}
+const finish = (game: Game, endGame: EndGame = noTilesLeft): Game =>
+  reduce(game, { type: 'finishGame', at: 'end', endGame });
 
 describe('createGame', () => {
   it('starts an active game with no turns', () => {

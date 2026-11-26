@@ -4,11 +4,10 @@ import type { EndGame, Player } from './types.ts';
 export const BLANK_SYMBOL = '?';
 
 /** Total face value of the letters left on a rack. Blanks ('?') count 0. */
-export function rackValue(letters: string): number {
-  return letters
+export const rackValue = (letters: string): number =>
+  letters
     .split('')
     .reduce((sum, letter) => sum + (letter === BLANK_SYMBOL ? 0 : letterPoints(letter)), 0);
-}
 
 /**
  * End-of-game adjustment for each player (playerId -> points).
@@ -16,10 +15,10 @@ export function rackValue(letters: string): number {
  * Each player loses the value of their unplayed tiles. If someone went out,
  * they gain the total of everyone else's unplayed tiles.
  */
-export function endGameAdjustments(
+export const endGameAdjustments = (
   players: readonly Player[],
   endGame: EndGame,
-): Record<string, number> {
+): Record<string, number> => {
   const adjustments: Record<string, number> = {};
   let leftOver = 0;
 
@@ -36,4 +35,4 @@ export function endGameAdjustments(
   }
 
   return adjustments;
-}
+};

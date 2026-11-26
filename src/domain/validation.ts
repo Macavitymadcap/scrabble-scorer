@@ -1,5 +1,14 @@
 import { BLANK_SYMBOL } from './endgame.ts';
-import { GameError, type EndGame, type Player, type TurnInput, type WordPlay } from './types.ts';
+import {
+  GameError,
+  byTurnKind,
+  type EndGame,
+  type Player,
+  type TurnInput,
+  type TurnInputOf,
+  type TurnStrategies,
+  type WordPlay,
+} from './types.ts';
 
 export const MIN_PLAYERS = 2;
 export const MAX_PLAYERS = 4;
@@ -13,7 +22,7 @@ export const MAX_WORD_SQUARES = 3;
 const LETTER = /^[A-Z]$/;
 const RACK = /^[A-Z?]*$/;
 
-export function validatePlayers(players: readonly Player[]): void {
+export const validatePlayers = (players: readonly Player[]): void => {
   if (players.length < MIN_PLAYERS || players.length > MAX_PLAYERS) {
     throw new GameError(`A game needs ${MIN_PLAYERS}-${MAX_PLAYERS} players.`);
   }
@@ -33,9 +42,9 @@ export function validatePlayers(players: readonly Player[]): void {
     ids.add(player.id);
     names.add(name);
   }
-}
+};
 
-function validateWord(word: WordPlay, index: number): void {
+const validateWord = (word: WordPlay, index: number): void => {
   const label = `Word ${index + 1}`;
   if (word.tiles.length < 2 || word.tiles.length > BOARD_SIZE) {
     throw new GameError(`${label} must be 2-${BOARD_SIZE} letters long.`);
@@ -54,12 +63,9 @@ function validateWord(word: WordPlay, index: number): void {
   if (doubleWords + tripleWords > MAX_WORD_SQUARES) {
     throw new GameError(`${label} can cover at most ${MAX_WORD_SQUARES} word squares.`);
   }
-}
+};
 
-export function validateTurnInput(turn: TurnInput): void {
-  if (turn.kind !== 'play') {
-    return;
-  }
+const validatePlay = (turn: TurnInputOf<'play'>): void => {
   if (turn.words.length === 0) {
     throw new GameError('A play needs at least one word.');
   }
@@ -71,9 +77,21 @@ export function validateTurnInput(turn: TurnInput): void {
   if (turn.bingo && !turn.words.some((word) => word.tiles.length >= RACK_SIZE)) {
     throw new GameError(`A bingo needs a word of at least ${RACK_SIZE} letters.`);
   }
-}
+};
 
-export function validateEndGame(players: readonly Player[], endGame: EndGame): void {
+/** Nothing to check: these turns carry no words. */
+const nothingToValidate = (): void => {};
+
+const TURN_VALIDATORS: TurnStrategies<void> = {
+  play: validatePlay,
+  pass: nothingToValidate,
+  exchange: nothingToValidate,
+  withdrawn: nothingToValidate,
+};
+
+export const validateTurnInput = (turn: TurnInput): void => byTurnKind(TURN_VALIDATORS, turn);
+
+export const validateEndGame = (players: readonly Player[], endGame: EndGame): void => {
   const ids = new Set(players.map((p) => p.id));
   for (const [playerId, letters] of Object.entries(endGame.remaining)) {
     if (!ids.has(playerId)) {
@@ -86,12 +104,10 @@ export function validateEndGame(players: readonly Player[], endGame: EndGame): v
     }
   }
   const wentOut = endGame.wentOutPlayerId;
-  if (wentOut !== null) {
-    if (!ids.has(wentOut)) {
-      throw new GameError(`Unknown player: ${wentOut}`);
-    }
-    if (endGame.remaining[wentOut]) {
-      throw new GameError('The player who went out cannot have tiles left.');
-    }
+  if (wentOut !== null && !ids.has(wentOut)) {
+    throw new GameError(`Unknown player: ${wentOut}`);
   }
-}
+  if (wentOut !== null && endGame.remaining[wentOut]) {
+    throw new GameError('The player who went out cannot have tiles left.');
+  }
+};

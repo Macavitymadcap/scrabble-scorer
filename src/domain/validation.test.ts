@@ -3,21 +3,18 @@ import { play, word } from './testing.ts';
 import { GameError, type EndGame, type Player, type TurnInput, type WordPlay } from './types.ts';
 import { validateEndGame, validatePlayers, validateTurnInput } from './validation.ts';
 
-function makePlayers(...names: string[]): Player[] {
-  return names.map((name, i) => ({ id: `p${i}`, name }));
-}
+const makePlayers = (...names: string[]): Player[] =>
+  names.map((name, i) => ({ id: `p${i}`, name }));
 
 /** A word with a single raw tile letter, bypassing the helper's upper-casing. */
-function wordWithLetter(letter: string): WordPlay {
-  return {
-    tiles: [
-      { letter, blank: false, premium: 'none' },
-      { letter: 'A', blank: false, premium: 'none' },
-    ],
-    doubleWords: 0,
-    tripleWords: 0,
-  };
-}
+const wordWithLetter = (letter: string): WordPlay => ({
+  tiles: [
+    { letter, blank: false, premium: 'none' },
+    { letter: 'A', blank: false, premium: 'none' },
+  ],
+  doubleWords: 0,
+  tripleWords: 0,
+});
 
 describe('validatePlayers', () => {
   describe('accepts', () => {

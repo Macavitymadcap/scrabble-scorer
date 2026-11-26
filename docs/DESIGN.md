@@ -299,6 +299,18 @@ interface Game {
   actions `addTurn`, `editTurn`, `undoTurn`, `finishGame` and `reopenGame`.
   (The plan had a `startGame` action. A separate function avoids a reducer
   over `Game | null`.)
+- **No `switch` on action type or turn kind.** Each is handled by a strategy
+  map typed per variant, so every handler gets its own narrowed type with no
+  casts:
+  - `ACTION_HANDLERS: { [T in GameActionType]: (game, action: GameActionOf<T>) => Game }`,
+    with `reduce` looking up `ACTION_HANDLERS[action.type]`.
+  - `TurnStrategies<R>` and `byTurnKind(strategies, turn)` for anything that
+    varies by turn kind, such as scoring (`TURN_SCORERS`) and validation
+    (`TURN_VALIDATORS`).
+
+  Adding a new action or turn kind is then a type error until every map
+  handles it.
+
 - **Ids and timestamps are passed in** with each action, never generated in
   the domain, so the reducer is pure and deterministic. The store supplies
   them.
@@ -444,6 +456,16 @@ Keep it as simple as possible: HTML, CSS and TypeScript, with no UI framework.
 - **Commits:** Conventional Commits (`feat:`, `fix:`, `docs:`, `chore:`,
   `test:`, ...), one line in the imperative mood.
 - `main` is never committed to directly.
+
+## Code style
+
+- Arrow functions (`const fn = (...) => ...`) rather than `function`
+  declarations, except where `this` matters (Lit component classes and their
+  methods).
+- Lookup maps and strategy functions rather than `switch` statements or
+  `if`/`else if` chains. Single guard clauses (early return or throw) are
+  fine. Maps over a union are typed per variant (see
+  [Types](#types)) so handlers need no casts.
 
 ## Testing
 

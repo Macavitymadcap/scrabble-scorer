@@ -10,9 +10,12 @@ import {
 import { play, word } from './testing.ts';
 import type { TilePlay, TurnInput } from './types.ts';
 
-function tile(letter: string, overrides: Partial<TilePlay> = {}): TilePlay {
-  return { letter, blank: false, premium: 'none', ...overrides };
-}
+const tile = (letter: string, overrides: Partial<TilePlay> = {}): TilePlay => ({
+  letter,
+  blank: false,
+  premium: 'none',
+  ...overrides,
+});
 
 describe('tileScore', () => {
   it('scores a plain tile at face value', () => {

@@ -20,12 +20,34 @@ export interface WordPlay {
   tripleWords: number;
 }
 
-export type NonScoringKind = 'pass' | 'exchange' | 'withdrawn';
+/** The extra fields each kind of turn carries. */
+interface TurnPayloads {
+  play: { words: WordPlay[]; bingo: boolean };
+  pass: Record<never, never>;
+  exchange: Record<never, never>;
+  withdrawn: Record<never, never>;
+}
+
+export type TurnKind = keyof TurnPayloads;
+export type NonScoringKind = Exclude<TurnKind, 'play'>;
+
+/** A turn of one kind, as entered. */
+export type TurnInputOf<K extends TurnKind> = { kind: K } & TurnPayloads[K];
 
 /** A turn as entered, before it is assigned an id, player and time. */
-export type TurnInput =
-  | { kind: 'play'; words: WordPlay[]; bingo: boolean }
-  | { kind: NonScoringKind };
+export type TurnInput = { [K in TurnKind]: TurnInputOf<K> }[TurnKind];
+
+/**
+ * A strategy per turn kind, each receiving its own narrowed turn. Call it
+ * through `byTurnKind` so no casts are needed.
+ */
+export type TurnStrategies<R> = { [K in TurnKind]: (turn: TurnInputOf<K>) => R };
+
+/** Runs the strategy for a turn's kind. */
+export const byTurnKind = <R, K extends TurnKind>(
+  strategies: TurnStrategies<R>,
+  turn: TurnInputOf<K>,
+): R => strategies[turn.kind](turn);
 
 export type Turn = TurnInput & {
   id: string;
