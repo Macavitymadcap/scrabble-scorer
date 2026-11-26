@@ -1,0 +1,17 @@
+{
+  "version": "0.2",
+  "language": "en-GB",
+  "words": [
+    "dictionaryapi",
+    "isation",
+    "keyval",
+    "NASPA",
+    "Oxfmt",
+    "Oxlint",
+    "Rolldown",
+    "SCOWL",
+    "VarCon",
+    "wordlist"
+  ],
+  "ignorePaths": ["node_modules", "dist", "src/words/*.txt"]
+}
