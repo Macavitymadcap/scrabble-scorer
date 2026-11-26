@@ -1,0 +1,33 @@
+{
+  "name": "scrabble-scorer",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Client-side PWA for keeping score in a real-world game of Scrabble",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "vp dev",
+    "build": "vp build",
+    "preview": "vp preview",
+    "check": "vp check",
+    "fix": "vp check --fix",
+    "lint": "vp lint",
+    "format": "vp fmt",
+    "test": "vp test run",
+    "test:watch": "vp test"
+  },
+  "dependencies": {
+    "lit": "^3.3.3",
+    "open-props": "^1.7.23"
+  },
+  "devDependencies": {
+    "vite-plus": "^1.8.0"
+  },
+  "overrides": {
+    "vite": "npm:@voidzero-dev/vite-plus-core@8.3.8001",
+    "vitest": "5.1.1"
+  },
+  "engines": {
+    "node": ">=26"
+  }
+}

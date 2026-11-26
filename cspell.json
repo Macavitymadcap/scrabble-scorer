@@ -16,9 +16,5 @@
     "wordlist",
     "Workbox"
   ],
-  "ignorePaths": [
-    "node_modules",
-    "dist",
-    "src/words/*.txt"
-  ]
+  "ignorePaths": ["node_modules", "dist", "src/words/*.txt"]
 }

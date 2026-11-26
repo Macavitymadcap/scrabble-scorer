@@ -1,0 +1,16 @@
+@import 'open-props/style';
+@import 'open-props/normalize';
+
+:root {
+  /* Premium-square colours, matching the physical board. */
+  --ss-premium-dl: var(--blue-2);
+  --ss-premium-tl: var(--blue-7);
+  --ss-premium-dw: var(--pink-3);
+  --ss-premium-tw: var(--red-7);
+}
+
+body {
+  min-block-size: 100dvh;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+}
