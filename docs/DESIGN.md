@@ -227,7 +227,8 @@ src/
   domain/      tiles.ts, scoring.ts, endgame.ts, validation.ts,
                game.ts (create, reducer, selectors), types.ts,
                testing.ts (test helpers)
-  state/       store.ts, storage.ts (persistence + migrations)
+  state/       store.ts, storage.ts, migrations.ts, schema.ts (validation
+               on load), testing.ts (test fixtures)
   words/       lexicon.ts (load + lookup), import.ts (user list, IndexedDB)
   ui/
     atoms/ molecules/ organisms/ templates/ pages/
@@ -332,17 +333,80 @@ interface Game {
 
 ### Persistence
 
-- Storage keys: `scrabble-scorer:current` for the active game and
-  `scrabble-scorer:history` for up to 20 finished games, oldest dropped first.
-- The store saves after every action. A game is a few KB, well inside the
-  `localStorage` limit.
-- Every stored object has a `schemaVersion`. On load, `migrate()` runs each
-  version step in turn. If the data can't be read or migrated, it is copied to
-  `scrabble-scorer:corrupt-<timestamp>` and the app starts fresh with a notice
-  rather than crashing.
-- If the game is open in several tabs, the last write wins. Syncing between
-  tabs is out of scope.
+The state layer (`src/state/`) sits between the domain and the UI.
+
+- **Storage keys:**
+  - `scrabble-scorer:current` holds the game in progress, or the one just
+    finished.
+  - `scrabble-scorer:history` holds up to 20 finished games, newest first,
+    with the oldest dropped. Adding a game that is already there replaces it
+    rather than duplicating it.
+- **Choosing storage (`chooseStorage`):** the app uses `localStorage` only if
+  a test write succeeds. If storage is blocked (for example in some private
+  windows) it falls back to in-memory storage and reports
+  `persistent: false`, so the UI can warn that games won't survive a reload.
+  The app talks to storage through a small `KeyValueStorage` interface
+  (`getItem`, `setItem`, `removeItem`), so tests use in-memory storage.
+- **Migrations (`migrations.ts`):** every stored game has a `schemaVersion`.
+  - `MIGRATIONS` maps the version a step upgrades from to a function that
+    returns the next version. `migrate()` runs each step in turn up to
+    `CURRENT_SCHEMA_VERSION` (currently 1, so the map is empty).
+  - Data from a newer app version, with no version, or with a gap in the
+    steps is rejected.
+  - A migrated game is saved straight back, so it only migrates once. If that
+    save fails, the game still loads.
+- **Validation on load (`schema.ts`):** `parseGame()` checks the shape of
+  every field, using lookup tables of field checks and of per-turn-kind
+  checks. It then re-applies the domain rules:
+  - player and turn validation
+  - turns are in turn order
+  - the end game is present exactly when the game is finished
+- **Unreadable data:**
+  - Bad JSON, the wrong shape, broken rules or a newer version are never
+    thrown away and never crash the app. The raw text is copied to
+    `scrabble-scorer:corrupt-<timestamp>`, the original key is cleared, and
+    the player sees a notice.
+  - In the history, unreadable entries are skipped, with a notice saying how
+    many.
+  - If storage can't even be read, the app starts empty with a notice.
+- **Saving:** the store saves after every successful action, and saves the
+  history only when it changed. A game is a few KB, well inside the
+  `localStorage` limit. If a save fails (storage full or turned off), the
+  change is kept in memory and the player sees a notice.
+- **Multiple tabs:** if the game is open in several tabs, the last write
+  wins. Syncing between tabs is out of scope.
 - The word list is **not** stored in `localStorage` (see below).
+
+### Store
+
+`new GameStore({ storage, now?, newId?, migrateOptions? })` is a class: a
+long-lived object with private state (`#state`, `#listeners`) set up in the
+constructor. Its public methods are arrow-function fields, so they stay bound
+when passed as callbacks (`@click=${store.undoTurn}`). Private helpers
+(`#commit`, `#apply`) are ordinary private methods.
+
+- **Loading:** it loads the current game and the history when created.
+- **Clock and ids:** `now` and `newId` default to `new Date().toISOString()`
+  and `crypto.randomUUID()`. Tests pass predictable ones instead.
+- **State:** `{ game, history, notice }`. `getState()` returns a new object
+  after every change, so changes can be detected by identity.
+  `subscribe(listener)` returns an unsubscribe function.
+- **Actions:**
+  - `startGame(names)`, `addTurn(turn)`, `editTurn(turnId, turn)`,
+    `undoTurn()`, `finishGame(endGame)`, `reopenGame()`. Each supplies the id
+    and time and applies the domain reducer.
+  - Each returns an `Outcome`, either `{ ok: true }` or
+    `{ ok: false, error }`. A broken rule (`GameError`) becomes an error
+    message for the UI, and nothing changes or is saved. Any other error is a
+    bug and is rethrown.
+  - `startGame` moves a finished current game into history. It discards an
+    active one; the UI asks the player to confirm first.
+  - `discardGame()` drops the current game without adding it to history.
+  - `dismissNotice()` clears the notice.
+- **Later milestones:**
+  - Wiring the store to the browser (`chooseStorage(() => localStorage)`) and
+    the Lit `StoreController` belong to `scrabble-0005`.
+  - `navigator.storage.persist()` belongs to `scrabble-0008`.
 
 ## Word lookup (stretch goal)
 
@@ -460,8 +524,11 @@ Keep it as simple as possible: HTML, CSS and TypeScript, with no UI framework.
 ## Code style
 
 - Arrow functions (`const fn = (...) => ...`) rather than `function`
-  declarations, except where `this` matters (Lit component classes and their
-  methods).
+  declarations for stateless logic.
+- Classes for stateful objects with a lifecycle: the store (`GameStore`),
+  and later controllers and Lit components. Private state goes in `#fields`.
+  Public methods that may be passed as callbacks are arrow-function fields,
+  so they stay bound.
 - Lookup maps and strategy functions rather than `switch` statements or
   `if`/`else if` chains. Single guard clauses (early return or throw) are
   fine. Maps over a union are typed per variant (see
@@ -488,8 +555,8 @@ All tests run on Vitest through Vite+ (`vp test`).
 - Prose and comments use ASCII. Test inputs that need a specific non-ASCII
   character, such as `'É'` for rejecting accented letters, use it directly.
 
-- **Domain unit tests (Node)**, the priority. Coverage of `src/domain` is
-  held at **100%** (statements, branches, functions, lines) by a threshold in
+- **Domain and state unit tests (Node)**, the priority. Coverage of
+  `src/domain` and `src/state` is held at **100%** (statements, branches, functions, lines) by a threshold in
   `vite.config.ts`, so CI fails if it drops. Tests use a compact word helper
   (`src/domain/testing.ts`): `word('Z3AP', { dw: 1 })` is Z on a TL, then A and
   P, on a DW square; lower case means a blank. Table-driven cases cover:
@@ -501,8 +568,17 @@ All tests run on Vitest through Vite+ (`vp test`).
   - end-game adjustments, with and without a player going out, and ties
   - the reducer: add, edit and undo turns; round and next-player calculation
   - known real-game turns as regression fixtures
-- **Persistence tests:** saving and loading round-trips, each schema
-  migration, and handling corrupt data.
+- **Persistence tests:**
+  - saving and loading round-trips
+  - migrations (single and multiple steps, gaps, newer versions)
+  - every kind of unreadable data, including setting it aside and the
+    notices shown
+  - blocked or full storage, including a failure partway through
+  - the store's actions, outcomes, saving and listeners
+
+  Fixtures are in `src/state/testing.ts`, e.g. `failingStorage(['setItem'])`
+  and `sequentialClock()`.
+
 - **Word list tests:** the built list is sorted, lowercase, `[a-z]{2,15}`
   and free of duplicates. It contains sample British spellings (_colour_,
   _recognise_) and excludes sample proper nouns. Lookups are case-insensitive.
