@@ -3,24 +3,36 @@ import { BLANK, LETTERS, TILES, letterPoints } from './tiles.ts';
 
 describe('TILES', () => {
   it('defines every letter A-Z and nothing else', () => {
+    // Arrange
+    const expected = LETTERS;
+
     // Act
     const defined = Object.keys(TILES).sort();
 
     // Assert
-    expect(defined).toEqual(LETTERS);
+    expect(defined).toEqual(expected);
   });
 
   it('has 100 tiles including the two blanks', () => {
+    // Arrange
+    const letterTiles = Object.values(TILES);
+
     // Act
-    const letterTiles = Object.values(TILES).reduce((sum, tile) => sum + tile.count, 0);
+    const total = letterTiles.reduce((sum, tile) => sum + tile.count, BLANK.count);
 
     // Assert
-    expect(letterTiles + BLANK.count).toBe(100);
+    expect(total).toBe(100);
   });
 
   it('scores blanks as 0', () => {
+    // Arrange
+    const blank = BLANK;
+
+    // Act
+    const points = blank.points;
+
     // Assert
-    expect(BLANK.points).toBe(0);
+    expect(points).toBe(0);
   });
 });
 
@@ -34,43 +46,79 @@ describe('letterPoints', () => {
     ['J', 8],
     ['Q', 10],
   ])('scores %s as %i', (letter, expected) => {
+    // Arrange
+    const input = letter;
+
     // Act
-    const points = letterPoints(letter);
+    const points = letterPoints(input);
 
     // Assert
     expect(points).toBe(expected);
   });
 
   it('ignores case', () => {
+    // Arrange
+    const lowerCase = 'z';
+
     // Act
-    const lower = letterPoints('z');
+    const points = letterPoints(lowerCase);
 
     // Assert
-    expect(lower).toBe(letterPoints('Z'));
+    expect(points).toBe(10);
   });
 
   it('rejects an empty string', () => {
-    // Act & Assert
-    expect(() => letterPoints('')).toThrow(RangeError);
+    // Arrange
+    const empty = '';
+
+    // Act
+    const act = () => letterPoints(empty);
+
+    // Assert
+    expect(act).toThrow(RangeError);
   });
 
   it('rejects more than one letter', () => {
-    // Act & Assert
-    expect(() => letterPoints('AB')).toThrow(RangeError);
+    // Arrange
+    const twoLetters = 'AB';
+
+    // Act
+    const act = () => letterPoints(twoLetters);
+
+    // Assert
+    expect(act).toThrow(RangeError);
   });
 
   it('rejects the blank symbol', () => {
-    // Act & Assert
-    expect(() => letterPoints('?')).toThrow(RangeError);
+    // Arrange
+    const blankSymbol = '?';
+
+    // Act
+    const act = () => letterPoints(blankSymbol);
+
+    // Assert
+    expect(act).toThrow(RangeError);
   });
 
   it('rejects digits', () => {
-    // Act & Assert
-    expect(() => letterPoints('1')).toThrow(RangeError);
+    // Arrange
+    const digit = '1';
+
+    // Act
+    const act = () => letterPoints(digit);
+
+    // Assert
+    expect(act).toThrow(RangeError);
   });
 
   it('rejects accented letters', () => {
-    // Act & Assert
-    expect(() => letterPoints('É')).toThrow(RangeError);
+    // Arrange
+    const accented = 'É';
+
+    // Act
+    const act = () => letterPoints(accented);
+
+    // Assert
+    expect(act).toThrow(RangeError);
   });
 });

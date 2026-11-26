@@ -459,8 +459,10 @@ All tests run on Vitest through Vite+ (`vp test`).
 - One behaviour per test with a descriptive name, grouped in `describe`
   blocks (for example `accepts` / `rejects`). Tables (`it.each`) only for
   simple input -> output data.
-- Tests use `// Arrange`, `// Act` and `// Assert` comments, with
-  `// Act & Assert` for `toThrow` checks.
+- Tests use `// Arrange`, `// Act` and `// Assert` comments, each its own
+  statement(s): inputs are built as named variables in Arrange; Act is a
+  single call assigned to a variable (`const act = () => fn(input)` for
+  throws); Assert only holds `expect`s. Sections are never merged.
 - Prose and comments use ASCII. Test inputs that need a specific non-ASCII
   character, such as `'É'` for rejecting accented letters, use it directly.
 

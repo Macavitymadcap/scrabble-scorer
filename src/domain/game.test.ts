@@ -11,6 +11,7 @@ import {
   scoreboardRounds,
   scoredTurns,
   standings,
+  type GameAction,
 } from './game.ts';
 import { play, word } from './testing.ts';
 import { GameError, type EndGame, type Game, type TurnInput } from './types.ts';
@@ -28,7 +29,7 @@ function newGame(): Game {
   return createGame({ id: 'g1', at: T0, players });
 }
 
-/** Adds a turn with a predictable id (t1, t2, ...) and time. */
+/** Adds a turn with a predictable id (t1, t2, ...) and time (at-1, at-2, ...). */
 function addTurn(game: Game, turn: TurnInput): Game {
   const n = game.turns.length + 1;
   return reduce(game, { type: 'addTurn', id: `t${n}`, at: `at-${n}`, turn });
@@ -45,8 +46,11 @@ function finish(game: Game, endGame: EndGame = noTilesLeft): Game {
 
 describe('createGame', () => {
   it('starts an active game with no turns', () => {
+    // Arrange
+    const input = { id: 'g1', at: T0, players };
+
     // Act
-    const game = newGame();
+    const game = createGame(input);
 
     // Assert
     expect(game).toEqual({
@@ -77,9 +81,9 @@ describe('createGame', () => {
   it('does not share the players array passed in', () => {
     // Arrange
     const input = [...players];
+    const game = createGame({ id: 'g', at: T0, players: input });
 
     // Act
-    const game = createGame({ id: 'g', at: T0, players: input });
     input.pop();
 
     // Assert
@@ -87,8 +91,14 @@ describe('createGame', () => {
   });
 
   it('validates the players', () => {
-    // Act & Assert
-    expect(() => createGame({ id: 'g', at: T0, players: [players[0]!] })).toThrow(GameError);
+    // Arrange
+    const onePlayer = { id: 'g', at: T0, players: [{ id: 'a', name: 'Ann' }] };
+
+    // Act
+    const act = () => createGame(onePlayer);
+
+    // Assert
+    expect(act).toThrow(GameError);
   });
 });
 
@@ -101,48 +111,95 @@ describe('roundOf', () => {
     [3, 4, 1],
     [4, 4, 2],
   ])('turn index %i with %i players is round %i', (index, playerCount, expected) => {
+    // Arrange
+    const turnIndex = index;
+
     // Act
-    const round = roundOf(index, playerCount);
+    const round = roundOf(turnIndex, playerCount);
 
     // Assert
     expect(round).toBe(expected);
   });
 });
 
-describe('nextPlayer and currentRound', () => {
-  it('start with the first player in round 1', () => {
+describe('nextPlayer', () => {
+  it('is the first player in a new game', () => {
     // Arrange
     const game = newGame();
 
-    // Act & Assert
-    expect(nextPlayer(game).id).toBe('a');
-    expect(currentRound(game)).toBe(1);
+    // Act
+    const player = nextPlayer(game);
+
+    // Assert
+    expect(player.id).toBe('a');
   });
 
-  it('move to the next player after a turn', () => {
+  it('moves on after a turn', () => {
     // Arrange
     const game = withTurns(pass);
 
-    // Act & Assert
-    expect(nextPlayer(game).id).toBe('b');
-    expect(currentRound(game)).toBe(1);
+    // Act
+    const player = nextPlayer(game);
+
+    // Assert
+    expect(player.id).toBe('b');
   });
 
-  it('wrap to the first player and the next round after everyone has played', () => {
+  it('wraps back to the first player after everyone has played', () => {
     // Arrange
     const game = withTurns(pass, pass, pass);
 
-    // Act & Assert
-    expect(nextPlayer(game).id).toBe('a');
-    expect(currentRound(game)).toBe(2);
+    // Act
+    const player = nextPlayer(game);
+
+    // Assert
+    expect(player.id).toBe('a');
   });
 
-  it('throw if a game somehow has no players', () => {
+  it('throws if a game somehow has no players', () => {
     // Arrange
     const broken = { ...newGame(), players: [] };
 
-    // Act & Assert
-    expect(() => nextPlayer(broken)).toThrow(GameError);
+    // Act
+    const act = () => nextPlayer(broken);
+
+    // Assert
+    expect(act).toThrow(GameError);
+  });
+});
+
+describe('currentRound', () => {
+  it('is round 1 in a new game', () => {
+    // Arrange
+    const game = newGame();
+
+    // Act
+    const round = currentRound(game);
+
+    // Assert
+    expect(round).toBe(1);
+  });
+
+  it('stays the same until everyone has played', () => {
+    // Arrange
+    const game = withTurns(pass, pass);
+
+    // Act
+    const round = currentRound(game);
+
+    // Assert
+    expect(round).toBe(1);
+  });
+
+  it('moves on once everyone has played', () => {
+    // Arrange
+    const game = withTurns(pass, pass, pass);
+
+    // Act
+    const round = currentRound(game);
+
+    // Assert
+    expect(round).toBe(2);
   });
 });
 
@@ -151,25 +208,33 @@ describe('reduce: addTurn', () => {
     // Arrange
     const game = newGame();
     const turn = play([word('CAT')]);
+    const action: GameAction = { type: 'addTurn', id: 'x', at: 'later', turn };
 
     // Act
-    const result = reduce(game, { type: 'addTurn', id: 'x', at: 'later', turn });
+    const result = reduce(game, action);
 
     // Assert
     expect(result.turns).toEqual([{ ...turn, id: 'x', playerId: 'a', at: 'later' }]);
   });
 
   it('sets updatedAt to the action time', () => {
+    // Arrange
+    const game = newGame();
+    const action: GameAction = { type: 'addTurn', id: 'x', at: 'later', turn: pass };
+
     // Act
-    const result = reduce(newGame(), { type: 'addTurn', id: 'x', at: 'later', turn: pass });
+    const result = reduce(game, action);
 
     // Assert
     expect(result.updatedAt).toBe('later');
   });
 
   it('assigns turns to players in order', () => {
+    // Arrange
+    const turns = [pass, pass, pass, pass];
+
     // Act
-    const game = withTurns(pass, pass, pass, pass);
+    const game = withTurns(...turns);
 
     // Assert
     expect(game.turns.map((t) => t.playerId)).toEqual(['a', 'b', 'c', 'a']);
@@ -188,48 +253,67 @@ describe('reduce: addTurn', () => {
   });
 
   it('validates the turn', () => {
-    // Act & Assert
-    expect(() => addTurn(newGame(), play([word('A')]))).toThrow(GameError);
+    // Arrange
+    const game = newGame();
+    const oneLetterWord = play([word('A')]);
+
+    // Act
+    const act = () => addTurn(game, oneLetterWord);
+
+    // Assert
+    expect(act).toThrow(GameError);
   });
 
   it('is refused once the game has finished', () => {
     // Arrange
     const finished = finish(newGame());
 
-    // Act & Assert
-    expect(() => addTurn(finished, pass)).toThrow(GameError);
+    // Act
+    const act = () => addTurn(finished, pass);
+
+    // Assert
+    expect(act).toThrow(GameError);
   });
 });
 
 describe('reduce: editTurn', () => {
-  it("replaces the turn's content but keeps its id, player, time and position", () => {
+  it("replaces the turn's content but keeps its id, player and time", () => {
     // Arrange
     const game = withTurns(play([word('CAT')]), play([word('DOG')]));
-
-    // Act
-    const result = reduce(game, {
+    const newContent = play([word('CART')]);
+    const action: GameAction = {
       type: 'editTurn',
       turnId: 't1',
       at: 'edit-time',
-      turn: play([word('CART')]),
-    });
+      turn: newContent,
+    };
+
+    // Act
+    const result = reduce(game, action);
 
     // Assert
-    expect(result.turns[0]).toEqual({
-      ...play([word('CART')]),
-      id: 't1',
-      playerId: 'a',
-      at: 'at-1',
-    });
+    expect(result.turns[0]).toEqual({ ...newContent, id: 't1', playerId: 'a', at: 'at-1' });
+  });
+
+  it('leaves the other turns untouched', () => {
+    // Arrange
+    const game = withTurns(play([word('CAT')]), play([word('DOG')]));
+    const action: GameAction = { type: 'editTurn', turnId: 't1', at: 'x', turn: pass };
+
+    // Act
+    const result = reduce(game, action);
+
+    // Assert
     expect(result.turns[1]).toBe(game.turns[1]);
   });
 
   it('sets updatedAt to the edit time', () => {
     // Arrange
     const game = withTurns(pass);
+    const action: GameAction = { type: 'editTurn', turnId: 't1', at: 'edit-time', turn: pass };
 
     // Act
-    const result = reduce(game, { type: 'editTurn', turnId: 't1', at: 'edit-time', turn: pass });
+    const result = reduce(game, action);
 
     // Assert
     expect(result.updatedAt).toBe('edit-time');
@@ -238,26 +322,27 @@ describe('reduce: editTurn', () => {
   it('can turn a play into a pass, dropping its words', () => {
     // Arrange
     const game = withTurns(play([word('CAT')]));
+    const action: GameAction = { type: 'editTurn', turnId: 't1', at: 'x', turn: pass };
 
     // Act
-    const result = reduce(game, { type: 'editTurn', turnId: 't1', at: 'x', turn: pass });
+    const result = reduce(game, action);
 
     // Assert
-    expect(result.turns[0]?.kind).toBe('pass');
-    expect(result.turns[0]).not.toHaveProperty('words');
+    expect(result.turns[0]).toEqual({ kind: 'pass', id: 't1', playerId: 'a', at: 'at-1' });
   });
 
   it('does not change whose turn is next', () => {
     // Arrange
     const game = withTurns(pass, pass);
-
-    // Act
-    const result = reduce(game, {
+    const action: GameAction = {
       type: 'editTurn',
       turnId: 't1',
       at: 'x',
       turn: play([word('AT')]),
-    });
+    };
+
+    // Act
+    const result = reduce(game, action);
 
     // Assert
     expect(nextPlayer(result).id).toBe('c');
@@ -266,91 +351,159 @@ describe('reduce: editTurn', () => {
   it('rejects an unknown turn id', () => {
     // Arrange
     const game = withTurns(pass);
+    const action: GameAction = { type: 'editTurn', turnId: 'nope', at: 'x', turn: pass };
 
-    // Act & Assert
-    expect(() => reduce(game, { type: 'editTurn', turnId: 'nope', at: 'x', turn: pass })).toThrow(
-      GameError,
-    );
+    // Act
+    const act = () => reduce(game, action);
+
+    // Assert
+    expect(act).toThrow(GameError);
   });
 
   it('validates the new turn', () => {
     // Arrange
     const game = withTurns(pass);
+    const action: GameAction = { type: 'editTurn', turnId: 't1', at: 'x', turn: play([]) };
 
-    // Act & Assert
-    expect(() => reduce(game, { type: 'editTurn', turnId: 't1', at: 'x', turn: play([]) })).toThrow(
-      GameError,
-    );
+    // Act
+    const act = () => reduce(game, action);
+
+    // Assert
+    expect(act).toThrow(GameError);
   });
 
   it('is refused once the game has finished', () => {
     // Arrange
     const finished = finish(withTurns(pass));
+    const action: GameAction = { type: 'editTurn', turnId: 't1', at: 'x', turn: pass };
 
-    // Act & Assert
-    expect(() => reduce(finished, { type: 'editTurn', turnId: 't1', at: 'x', turn: pass })).toThrow(
-      GameError,
-    );
+    // Act
+    const act = () => reduce(finished, action);
+
+    // Assert
+    expect(act).toThrow(GameError);
   });
 });
 
 describe('reduce: undoTurn', () => {
-  it('removes the last turn and hands the turn back', () => {
+  it('removes the last turn', () => {
     // Arrange
     const game = withTurns(pass, pass);
+    const action: GameAction = { type: 'undoTurn', at: 'x' };
 
     // Act
-    const result = reduce(game, { type: 'undoTurn', at: 'undo-time' });
+    const result = reduce(game, action);
 
     // Assert
     expect(result.turns.map((t) => t.id)).toEqual(['t1']);
+  });
+
+  it('hands the turn back to the player who was undone', () => {
+    // Arrange
+    const game = withTurns(pass, pass);
+    const action: GameAction = { type: 'undoTurn', at: 'x' };
+
+    // Act
+    const result = reduce(game, action);
+
+    // Assert
     expect(nextPlayer(result).id).toBe('b');
+  });
+
+  it('sets updatedAt to the undo time', () => {
+    // Arrange
+    const game = withTurns(pass);
+    const action: GameAction = { type: 'undoTurn', at: 'undo-time' };
+
+    // Act
+    const result = reduce(game, action);
+
+    // Assert
     expect(result.updatedAt).toBe('undo-time');
   });
 
-  it('can undo back to the very first turn', () => {
+  it('can undo the very first turn', () => {
     // Arrange
     const game = withTurns(pass);
+    const action: GameAction = { type: 'undoTurn', at: 'x' };
 
     // Act
-    const result = reduce(game, { type: 'undoTurn', at: 'x' });
+    const result = reduce(game, action);
 
     // Assert
     expect(result.turns).toEqual([]);
-    expect(nextPlayer(result).id).toBe('a');
   });
 
   it('rejects undo when there are no turns', () => {
-    // Act & Assert
-    expect(() => reduce(newGame(), { type: 'undoTurn', at: 'x' })).toThrow(GameError);
+    // Arrange
+    const game = newGame();
+    const action: GameAction = { type: 'undoTurn', at: 'x' };
+
+    // Act
+    const act = () => reduce(game, action);
+
+    // Assert
+    expect(act).toThrow(GameError);
   });
 
   it('is refused once the game has finished', () => {
     // Arrange
     const finished = finish(withTurns(pass));
+    const action: GameAction = { type: 'undoTurn', at: 'x' };
 
-    // Act & Assert
-    expect(() => reduce(finished, { type: 'undoTurn', at: 'x' })).toThrow(GameError);
+    // Act
+    const act = () => reduce(finished, action);
+
+    // Assert
+    expect(act).toThrow(GameError);
   });
 });
 
 describe('reduce: finishGame', () => {
-  it('marks the game finished and stores the end game', () => {
+  it('marks the game finished', () => {
     // Arrange
-    const endGame = { wentOutPlayerId: null, remaining: { a: 'E' } };
+    const game = withTurns(pass);
+    const action: GameAction = { type: 'finishGame', at: 'end', endGame: noTilesLeft };
 
     // Act
-    const result = reduce(withTurns(pass), { type: 'finishGame', at: 'end', endGame });
+    const result = reduce(game, action);
 
     // Assert
     expect(result.status).toBe('finished');
+  });
+
+  it('stores the end game', () => {
+    // Arrange
+    const game = withTurns(pass);
+    const endGame: EndGame = { wentOutPlayerId: null, remaining: { a: 'E' } };
+    const action: GameAction = { type: 'finishGame', at: 'end', endGame };
+
+    // Act
+    const result = reduce(game, action);
+
+    // Assert
     expect(result.endGame).toEqual(endGame);
+  });
+
+  it('sets updatedAt to the finish time', () => {
+    // Arrange
+    const game = withTurns(pass);
+    const action: GameAction = { type: 'finishGame', at: 'end', endGame: noTilesLeft };
+
+    // Act
+    const result = reduce(game, action);
+
+    // Assert
     expect(result.updatedAt).toBe('end');
   });
 
   it('can finish a game with no turns', () => {
+    // Arrange
+    const game = newGame();
+    const action: GameAction = { type: 'finishGame', at: 'end', endGame: noTilesLeft };
+
     // Act
-    const result = finish(newGame());
+    const result = reduce(game, action);
 
     // Assert
     expect(result.status).toBe('finished');
@@ -358,49 +511,88 @@ describe('reduce: finishGame', () => {
 
   it('validates the end game', () => {
     // Arrange
-    const endGame = { wentOutPlayerId: 'nobody', remaining: {} };
+    const game = newGame();
+    const unknownPlayer: EndGame = { wentOutPlayerId: 'nobody', remaining: {} };
+    const action: GameAction = { type: 'finishGame', at: 'end', endGame: unknownPlayer };
 
-    // Act & Assert
-    expect(() => finish(newGame(), endGame)).toThrow(GameError);
+    // Act
+    const act = () => reduce(game, action);
+
+    // Assert
+    expect(act).toThrow(GameError);
   });
 
   it('rejects finishing twice', () => {
     // Arrange
     const finished = finish(newGame());
+    const action: GameAction = { type: 'finishGame', at: 'again', endGame: noTilesLeft };
 
-    // Act & Assert
-    expect(() => finish(finished)).toThrow(GameError);
+    // Act
+    const act = () => reduce(finished, action);
+
+    // Assert
+    expect(act).toThrow(GameError);
   });
 });
 
 describe('reduce: reopenGame', () => {
-  it('makes the game active again and drops the end game', () => {
+  it('makes the game active again', () => {
     // Arrange
-    const finished = finish(withTurns(pass), { wentOutPlayerId: null, remaining: { a: 'E' } });
+    const finished = finish(withTurns(pass));
+    const action: GameAction = { type: 'reopenGame', at: 'again' };
 
     // Act
-    const result = reduce(finished, { type: 'reopenGame', at: 'again' });
+    const result = reduce(finished, action);
 
     // Assert
     expect(result.status).toBe('active');
+  });
+
+  it('drops the end game', () => {
+    // Arrange
+    const finished = finish(withTurns(pass), { wentOutPlayerId: null, remaining: { a: 'E' } });
+    const action: GameAction = { type: 'reopenGame', at: 'again' };
+
+    // Act
+    const result = reduce(finished, action);
+
+    // Assert
     expect(result).not.toHaveProperty('endGame');
+  });
+
+  it('sets updatedAt to the reopen time', () => {
+    // Arrange
+    const finished = finish(withTurns(pass));
+    const action: GameAction = { type: 'reopenGame', at: 'again' };
+
+    // Act
+    const result = reduce(finished, action);
+
+    // Assert
     expect(result.updatedAt).toBe('again');
   });
 
-  it('keeps the turns, so play can continue', () => {
+  it('keeps the turns, so play can continue with the next player', () => {
     // Arrange
-    const finished = finish(withTurns(pass, pass));
+    const reopened = reduce(finish(withTurns(pass, pass)), { type: 'reopenGame', at: 'x' });
 
     // Act
-    const result = addTurn(reduce(finished, { type: 'reopenGame', at: 'x' }), pass);
+    const result = addTurn(reopened, pass);
 
     // Assert
     expect(result.turns.map((t) => t.playerId)).toEqual(['a', 'b', 'c']);
   });
 
   it('rejects reopening a game that is still active', () => {
-    // Act & Assert
-    expect(() => reduce(newGame(), { type: 'reopenGame', at: 'x' })).toThrow(GameError);
+    // Arrange
+    const game = newGame();
+    const action: GameAction = { type: 'reopenGame', at: 'x' };
+
+    // Act
+    const act = () => reduce(game, action);
+
+    // Assert
+    expect(act).toThrow(GameError);
   });
 });
 
@@ -415,9 +607,12 @@ describe('derived scores', () => {
   );
 
   describe('scoredTurns', () => {
-    it('scores each turn with its round', () => {
+    it('scores each turn and gives its round', () => {
+      // Arrange
+      const sample = game;
+
       // Act
-      const result = scoredTurns(game);
+      const result = scoredTurns(sample);
 
       // Assert
       expect(result.map((s) => [s.turn.id, s.round, s.score.total])).toEqual([
@@ -430,30 +625,47 @@ describe('derived scores', () => {
   });
 
   describe('scoreboardRounds', () => {
-    it('groups turns by round and player', () => {
+    it('makes one row per round', () => {
+      // Arrange
+      const sample = game;
+
       // Act
-      const rounds = scoreboardRounds(game);
+      const rounds = scoreboardRounds(sample);
 
       // Assert
       expect(rounds.map((r) => r.round)).toEqual([1, 2]);
-      expect(rounds[0]?.turns.a?.score.total).toBe(44);
-      expect(rounds[0]?.turns.b?.score.total).toBe(0);
-      expect(rounds[0]?.turns.c?.score.total).toBe(38);
-      expect(rounds[1]?.turns.a?.score.total).toBe(66);
+    });
+
+    it("puts each turn under its player in that round's row", () => {
+      // Arrange
+      const sample = game;
+
+      // Act
+      const [round1] = scoreboardRounds(sample);
+
+      // Assert
+      expect(round1?.turns.a?.score.total).toBe(44);
+      expect(round1?.turns.b?.score.total).toBe(0);
+      expect(round1?.turns.c?.score.total).toBe(38);
     });
 
     it('leaves players who have not played yet in a round empty', () => {
+      // Arrange
+      const sample = game;
+
       // Act
-      const [, round2] = scoreboardRounds(game);
+      const [, round2] = scoreboardRounds(sample);
 
       // Assert
-      expect(round2?.turns.b).toBeUndefined();
-      expect(round2?.turns.c).toBeUndefined();
+      expect(Object.keys(round2?.turns ?? {})).toEqual(['a']);
     });
 
-    it('has no rounds before the first turn', () => {
+    it('has no rows before the first turn', () => {
+      // Arrange
+      const fresh = newGame();
+
       // Act
-      const rounds = scoreboardRounds(newGame());
+      const rounds = scoreboardRounds(fresh);
 
       // Assert
       expect(rounds).toEqual([]);
@@ -462,8 +674,11 @@ describe('derived scores', () => {
 
   describe('playerTotals', () => {
     it('totals each player, in turn order', () => {
+      // Arrange
+      const sample = game;
+
       // Act
-      const totals = playerTotals(game);
+      const totals = playerTotals(sample);
 
       // Assert
       expect(totals.map((t) => [t.player.id, t.total])).toEqual([
@@ -474,8 +689,11 @@ describe('derived scores', () => {
     });
 
     it('gives 0 to players who have not played yet', () => {
+      // Arrange
+      const fresh = newGame();
+
       // Act
-      const totals = playerTotals(newGame());
+      const totals = playerTotals(fresh);
 
       // Assert
       expect(totals.map((t) => t.total)).toEqual([0, 0, 0]);
@@ -522,16 +740,22 @@ describe('derived scores', () => {
 
   describe('standings', () => {
     it('ranks players by total, highest first', () => {
+      // Arrange
+      const sample = game;
+
       // Act
-      const { ranking } = standings(game);
+      const { ranking } = standings(sample);
 
       // Assert
       expect(ranking.map((t) => t.player.id)).toEqual(['a', 'c', 'b']);
     });
 
     it('has a single leader when nobody ties', () => {
+      // Arrange
+      const sample = game;
+
       // Act
-      const { leaders } = standings(game);
+      const { leaders } = standings(sample);
 
       // Assert
       expect(leaders.map((p) => p.id)).toEqual(['a']);
@@ -549,30 +773,46 @@ describe('derived scores', () => {
     });
 
     it('keeps turn order between tied players', () => {
+      // Arrange
+      const allZero = newGame();
+
       // Act
-      const { ranking } = standings(newGame());
+      const { ranking } = standings(allZero);
 
       // Assert
       expect(ranking.map((t) => t.player.id)).toEqual(['a', 'b', 'c']);
     });
 
-    it('ranks negative totals below zero', () => {
+    it('ranks a negative total last', () => {
       // Arrange
       const finished = finish(withTurns(pass), { wentOutPlayerId: null, remaining: { b: 'Q' } });
 
       // Act
-      const { ranking, leaders } = standings(finished);
+      const { ranking } = standings(finished);
 
       // Assert
-      expect(ranking.at(-1)?.player.id).toBe('b');
+      expect(ranking.map((t) => t.player.id)).toEqual(['a', 'c', 'b']);
+    });
+
+    it('can have leaders on 0 when someone else is negative', () => {
+      // Arrange
+      const finished = finish(withTurns(pass), { wentOutPlayerId: null, remaining: { b: 'Q' } });
+
+      // Act
+      const { leaders } = standings(finished);
+
+      // Assert
       expect(leaders.map((p) => p.id)).toEqual(['a', 'c']);
     });
   });
 
   describe('bestTurn', () => {
     it('finds the highest-scoring turn', () => {
+      // Arrange
+      const sample = game;
+
       // Act
-      const best = bestTurn(game);
+      const best = bestTurn(sample);
 
       // Assert
       expect(best?.turn.id).toBe('t4');
@@ -603,8 +843,11 @@ describe('derived scores', () => {
 
   describe('bestWord', () => {
     it('finds the highest-scoring single word, ignoring the bingo bonus', () => {
+      // Arrange
+      const sample = game;
+
       // Act
-      const best = bestWord(game);
+      const best = bestWord(sample);
 
       // Assert
       expect(best).toEqual({ word: 'QUIZ', score: 44, playerId: 'a', turnId: 't1' });
@@ -612,10 +855,10 @@ describe('derived scores', () => {
 
     it('considers cross-words, not just the first word', () => {
       // Arrange
-      const crossWins = withTurns(play([word('AT'), word('ZAX')]));
+      const crossWordWins = withTurns(play([word('AT'), word('ZAX')]));
 
       // Act
-      const best = bestWord(crossWins);
+      const best = bestWord(crossWordWins);
 
       // Assert
       expect(best?.word).toBe('ZAX');

@@ -3,8 +3,11 @@ import { play, word } from './testing.ts';
 
 describe('word (test helper)', () => {
   it('builds plain tiles with no premiums', () => {
+    // Arrange
+    const notation = 'AT';
+
     // Act
-    const result = word('AT');
+    const result = word(notation);
 
     // Assert
     expect(result).toEqual({
@@ -18,33 +21,58 @@ describe('word (test helper)', () => {
   });
 
   it('marks a lower-case letter as a blank, stored in upper case', () => {
+    // Arrange
+    const notation = 'qI';
+
     // Act
-    const [tile] = word('qI').tiles;
+    const [firstTile] = word(notation).tiles;
 
     // Assert
-    expect(tile).toEqual({ letter: 'Q', blank: true, premium: 'none' });
+    expect(firstTile).toEqual({ letter: 'Q', blank: true, premium: 'none' });
   });
 
   it('applies 2 and 3 to the letter before them', () => {
+    // Arrange
+    const notation = 'A2T3E';
+
     // Act
-    const tiles = word('A2T3E').tiles;
+    const premiums = word(notation).tiles.map((tile) => tile.premium);
 
     // Assert
-    expect(tiles.map((t) => t.premium)).toEqual(['DL', 'TL', 'none']);
+    expect(premiums).toEqual(['DL', 'TL', 'none']);
   });
 
-  it('sets the word multiplier counts', () => {
+  it('sets the double word count', () => {
+    // Arrange
+    const options = { dw: 1 };
+
     // Act
-    const result = word('AT', { dw: 1, tw: 2 });
+    const result = word('AT', options);
 
     // Assert
     expect(result.doubleWords).toBe(1);
+  });
+
+  it('sets the triple word count', () => {
+    // Arrange
+    const options = { tw: 2 };
+
+    // Act
+    const result = word('AT', options);
+
+    // Assert
     expect(result.tripleWords).toBe(2);
   });
 
   it('throws for a premium marker with no letter before it', () => {
-    // Act & Assert
-    expect(() => word('2AT')).toThrow();
+    // Arrange
+    const notation = '2AT';
+
+    // Act
+    const act = () => word(notation);
+
+    // Assert
+    expect(act).toThrow();
   });
 });
 
@@ -61,10 +89,13 @@ describe('play (test helper)', () => {
   });
 
   it('builds a bingo when asked', () => {
+    // Arrange
+    const words = [word('RETAINS')];
+
     // Act
-    const result = play([word('RETAINS')], true);
+    const result = play(words, true);
 
     // Assert
-    expect(result).toMatchObject({ kind: 'play', bingo: true });
+    expect(result).toEqual({ kind: 'play', words, bingo: true });
   });
 });
