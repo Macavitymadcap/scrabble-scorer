@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vite-plus/test';
 import { play, word } from '../domain/testing.ts';
 import type { EndGame, TurnInput } from '../domain/types.ts';
 import { KEYS, MESSAGES, createMemoryStorage, type KeyValueStorage } from './storage.ts';
+import { DEFAULT_SETTINGS, SETTINGS_KEY } from './settings.ts';
 import { GameStore, type StoreOptions } from './store.ts';
 import {
   failingStorage,
@@ -45,7 +46,12 @@ describe('new GameStore', () => {
     const store = makeStore(options);
 
     // Assert
-    expect(store.getState()).toEqual({ game: null, history: [], notice: null });
+    expect(store.getState()).toEqual({
+      game: null,
+      history: [],
+      notice: null,
+      settings: DEFAULT_SETTINGS,
+    });
   });
 
   it('loads the saved game', () => {
@@ -108,6 +114,7 @@ describe('new GameStore', () => {
       game: null,
       history: [],
       notice: MESSAGES.storageUnavailable,
+      settings: DEFAULT_SETTINGS,
     });
   });
 
@@ -480,6 +487,70 @@ describe('history management', () => {
 
     // Assert
     expect(store.getState().history).toEqual([]);
+  });
+});
+
+describe('settings', () => {
+  it('loads saved settings', () => {
+    // Arrange
+    const storage = createMemoryStorage();
+    storage.setItem(SETTINGS_KEY, JSON.stringify({ keepScreenOn: false }));
+
+    // Act
+    const store = makeStore({ storage });
+
+    // Assert
+    expect(store.getState().settings).toEqual({ keepScreenOn: false });
+  });
+
+  it('turns keeping the screen on off', () => {
+    // Arrange
+    const store = makeStore();
+
+    // Act
+    store.setKeepScreenOn(false);
+
+    // Assert
+    expect(store.getState().settings.keepScreenOn).toBe(false);
+  });
+
+  it('saves the setting', () => {
+    // Arrange
+    const storage = createMemoryStorage();
+    const store = makeStore({ storage });
+
+    // Act
+    store.setKeepScreenOn(false);
+
+    // Assert
+    expect(JSON.parse(storage.getItem(SETTINGS_KEY) ?? 'null')).toEqual({ keepScreenOn: false });
+  });
+
+  it('notifies listeners', () => {
+    // Arrange
+    const store = makeStore();
+    const listener = vi.fn();
+    store.subscribe(listener);
+
+    // Act
+    store.setKeepScreenOn(false);
+
+    // Assert
+    expect(listener).toHaveBeenCalledOnce();
+  });
+
+  it('keeps the change in memory and shows a notice when it cannot be saved', () => {
+    // Arrange
+    const store = makeStore({ storage: failingStorage(['setItem']) });
+
+    // Act
+    store.setKeepScreenOn(false);
+
+    // Assert
+    expect(store.getState()).toMatchObject({
+      settings: { keepScreenOn: false },
+      notice: MESSAGES.saveFailed,
+    });
   });
 });
 

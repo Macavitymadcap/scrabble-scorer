@@ -1,5 +1,6 @@
 import { LitElement, css } from 'lit';
 import { property } from 'lit/decorators.js';
+import { DEFAULT_SETTINGS } from '../../../state/settings.ts';
 import type { GameStore, StoreState } from '../../../state/store.ts';
 import { buttonStyles } from '../atoms/button-styles.ts';
 import { StoreController } from '../../store-controller.ts';
@@ -76,6 +77,14 @@ export const pageStyles = css`
   }
 `;
 
+/** What pages show before a store is set. */
+const EMPTY_STATE: StoreState = {
+  game: null,
+  history: [],
+  notice: null,
+  settings: DEFAULT_SETTINGS,
+};
+
 /**
  * Base class for pages: holds the store, re-renders on store changes, and
  * lets the router move focus to the page's heading after navigation.
@@ -89,7 +98,7 @@ export class PageElement extends LitElement {
 
   /** The store's state; an empty state if no store has been set. */
   protected get state(): StoreState {
-    return this.storeController.state ?? { game: null, history: [], notice: null };
+    return this.storeController.state ?? EMPTY_STATE;
   }
 
   /** Moves focus to the page's <h1>, so screen readers announce the new page. */
