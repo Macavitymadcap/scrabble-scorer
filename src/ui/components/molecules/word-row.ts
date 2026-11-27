@@ -102,16 +102,39 @@ export const wordRowStyles = css`
     cursor: not-allowed;
   }
 
+  /* Advisory only: muted, with the result in words as well as colour. */
+  .word-check {
+    margin: 0;
+    color: var(--ss-text-muted);
+    font-size: var(--font-size-1);
+  }
+
+  .word-check.out {
+    color: var(--ss-danger);
+  }
+
   .subtotal {
     margin: 0;
     font-variant-numeric: tabular-nums;
   }
 `;
 
+/** Whether a word is in the word list, or the check is still loading. */
+export type WordCheck = 'in' | 'out' | 'checking';
+
+/** What the word row says for each check result. */
+export const WORD_CHECK_LABELS: Readonly<Record<WordCheck, string>> = {
+  in: 'In the word list',
+  out: 'Not in the word list',
+  checking: 'Checking the word list...',
+};
+
 export interface WordRowOptions {
   word: WordPlay;
   index: number;
   error?: string | undefined;
+  /** The word list check to show; omit to show none. */
+  check?: WordCheck | undefined;
   removable: boolean;
   onText: (text: string) => void;
   onBlur: () => void;
@@ -149,9 +172,13 @@ const renderSquares = ({ word, index, onSquares }: WordRowOptions, square: WordS
  * the word squares it covers, and its score.
  */
 export const renderWordRow = (options: WordRowOptions) => {
-  const { word, index, error, removable, onText, onBlur, onTile, onRemove } = options;
+  const { word, index, error, removable, onText, onBlur, onTile, onRemove, check } = options;
   const id = `word-${index}`;
   const legend = wordLegend(index);
+  // The input is described by its error and its word list check, if any.
+  const describedBy = [error ? `${id}-error` : '', check ? `${id}-check` : '']
+    .filter(Boolean)
+    .join(' ');
   return html`
     <fieldset class="word-row" data-index=${index}>
       <legend>${legend}</legend>
@@ -170,7 +197,7 @@ export const renderWordRow = (options: WordRowOptions) => {
           spellcheck="false"
           enterkeyhint="done"
           aria-invalid=${error ? 'true' : 'false'}
-          aria-describedby=${error ? `${id}-error` : nothing}
+          aria-describedby=${describedBy || nothing}
           @input=${(event: Event) => onText((event.target as HTMLInputElement).value)}
           @blur=${onBlur}
         />
@@ -195,6 +222,11 @@ export const renderWordRow = (options: WordRowOptions) => {
       }
       ${renderSquares(options, 'doubleWords')} ${renderSquares(options, 'tripleWords')}
       <p class="subtotal">Word score: <output>${wordScore(word)}</output></p>
+      ${
+        check
+          ? html`<p class="word-check ${check}" id="${id}-check">${WORD_CHECK_LABELS[check]}</p>`
+          : nothing
+      }
       ${
         removable
           ? html`<button type="button" class="button" @click=${onRemove}>

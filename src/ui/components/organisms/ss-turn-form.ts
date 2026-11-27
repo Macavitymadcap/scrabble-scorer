@@ -1,4 +1,4 @@
-import { LitElement, css, html, nothing } from 'lit';
+import { LitElement, css, html, nothing, type PropertyValues } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { scoreTurn } from '../../../domain/scoring.ts';
 import {
@@ -14,13 +14,15 @@ import {
   emptyWord,
   retile,
   tileMark,
+  wordLetters,
   type WordSquare,
 } from '../../../domain/word-entry.ts';
+import type { WordList, WordListStatus } from '../../../words/word-list.ts';
 import { buttonStyles } from '../atoms/button-styles.ts';
 import { fieldStyles } from '../atoms/field-styles.ts';
 import { MARK_LABELS, tileStyles } from '../atoms/tile.ts';
 import { visuallyHiddenStyles } from '../atoms/visually-hidden-styles.ts';
-import { renderWordRow, wordLegend, wordRowStyles } from '../molecules/word-row.ts';
+import { renderWordRow, wordLegend, wordRowStyles, type WordCheck } from '../molecules/word-row.ts';
 import { baseStyles } from '../../base-styles.ts';
 
 /** Fired with the turn when the form is valid and submitted. */
@@ -65,6 +67,16 @@ const TURN_BUILDERS: Readonly<Record<TurnKind, (fields: PlayFields) => TurnInput
   pass: () => ({ kind: 'pass' }),
   exchange: () => ({ kind: 'exchange' }),
   withdrawn: () => ({ kind: 'withdrawn' }),
+};
+
+/** The check to show for a word, by word list status. Nothing is shown if it failed to load. */
+const WORD_LIST_CHECKS: Readonly<
+  Record<WordListStatus, (list: WordList, letters: string) => WordCheck | undefined>
+> = {
+  idle: () => 'checking',
+  loading: () => 'checking',
+  ready: (list, letters) => (list.contains(letters) ? 'in' : 'out'),
+  error: () => undefined,
 };
 
 /** The error for a word, or undefined if it can be saved. */
@@ -166,6 +178,12 @@ export class SsTurnForm extends LitElement {
   /** An error from saving the turn (e.g. a rule the store rejected). */
   @property() error = '';
 
+  /** The word list to check words against. */
+  @property({ attribute: false }) wordList: WordList | undefined;
+
+  /** Show whether each word is in the word list (advisory only). */
+  @property({ type: Boolean }) checkWords = false;
+
   @state() kind: TurnKind = 'play';
   @state() words: WordPlay[] = [emptyWord()];
   @state() bingo = false;
@@ -174,6 +192,7 @@ export class SsTurnForm extends LitElement {
   @state() status = '';
 
   #edited = new Set<number>();
+  #unsubscribeWordList: (() => void) | undefined;
   #pendingFocus: string | undefined;
 
   override connectedCallback(): void {
@@ -184,6 +203,34 @@ export class SsTurnForm extends LitElement {
       this.words = words;
       this.bingo = bingo;
     }
+  }
+
+  override disconnectedCallback(): void {
+    super.disconnectedCallback();
+    this.#unsubscribeWordList?.();
+    this.#unsubscribeWordList = undefined;
+  }
+
+  override willUpdate(changed: PropertyValues<this>): void {
+    // Start loading the word list (once) when checking is on, and re-render as it loads.
+    const listChanged = changed.has('wordList') || changed.has('checkWords');
+    if (listChanged) {
+      this.#unsubscribeWordList?.();
+      this.#unsubscribeWordList = undefined;
+    }
+    if (listChanged && this.checkWords && this.wordList) {
+      this.#unsubscribeWordList = this.wordList.subscribe(() => this.requestUpdate());
+      void this.wordList.load();
+    }
+  }
+
+  /** The word list check to show for a word, if any. */
+  #checkFor(word: WordPlay): WordCheck | undefined {
+    const { wordList } = this;
+    if (!this.checkWords || !wordList || word.tiles.length < 2) {
+      return undefined;
+    }
+    return WORD_LIST_CHECKS[wordList.status](wordList, wordLetters(word));
   }
 
   override updated(): void {
@@ -288,6 +335,7 @@ export class SsTurnForm extends LitElement {
             word,
             index,
             error: this.errors[`word-${index}`],
+            check: this.#checkFor(word),
             removable: index > 0,
             onText: (text) => this.#onText(index, text),
             onBlur: () => this.#onWordBlur(index),

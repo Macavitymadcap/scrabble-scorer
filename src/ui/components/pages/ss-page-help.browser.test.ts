@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { page, userEvent } from 'vite-plus/test/browser/context';
-import { GAME, NEW_GAME, SETTINGS } from '../../router.ts';
+import { GAME, LOOKUP, NEW_GAME, SETTINGS } from '../../router.ts';
 import { create, mount, testStore } from '../../testing.ts';
 import './ss-page-help.ts';
 import { HELP_TOPICS } from './ss-page-help.ts';
@@ -89,7 +89,33 @@ describe('ss-page-help', () => {
     );
 
     // Assert
-    expect(hrefs).toEqual(expect.arrayContaining([NEW_GAME, GAME, SETTINGS]));
+    expect(hrefs).toEqual(expect.arrayContaining([NEW_GAME, GAME, SETTINGS, LOOKUP]));
+  });
+
+  it('explains word checks and credits the word lists', async () => {
+    // Arrange
+    await mount(create('ss-page-help', { store: testStore() }));
+
+    // Act
+    await userEvent.click(topic('Checking words'));
+
+    // Assert
+    await expect
+      .element(page.getByText(/ENABLE word\s+list \(by Alan Beale and M\. Cooper\)/))
+      .toBeVisible();
+  });
+
+  it('links to the third-party notices in a new tab', async () => {
+    // Arrange
+    await mount(create('ss-page-help', { store: testStore() }));
+    await userEvent.click(topic('Checking words'));
+
+    // Act
+    const link = page.getByRole('link', { name: 'third-party notices' });
+
+    // Assert
+    await expect.element(link).toHaveAttribute('target', '_blank');
+    await expect.element(link).toHaveAttribute('rel', 'noopener');
   });
 
   it('has no headings inside the summaries, which some screen readers drop', async () => {

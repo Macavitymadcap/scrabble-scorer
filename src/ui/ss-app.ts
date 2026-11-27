@@ -5,6 +5,7 @@ import { StoreController } from './store-controller.ts';
 import type { PageElement } from './components/pages/page-element.ts';
 import './components/pages/ss-page-game.ts';
 import './components/pages/ss-page-home.ts';
+import './components/pages/ss-page-lookup.ts';
 import './components/pages/ss-page-new-game.ts';
 import './components/pages/ss-page-end.ts';
 import './components/pages/ss-page-help.ts';
@@ -15,6 +16,7 @@ import './components/pages/ss-page-turn.ts';
 import type { InstallPrompt } from './install-prompt.ts';
 import { resolveRoute, type ResolvedRoute, type Route } from './router.ts';
 import { ScreenWakeLock } from './screen-wake-lock.ts';
+import { WordList } from '../words/word-list.ts';
 import './components/templates/ss-app-shell.ts';
 
 /** What a page may need from the app. */
@@ -23,6 +25,7 @@ interface PageContext {
   /** The part of the hash after the page's base, e.g. a turn id. */
   param: string | undefined;
   installer: InstallPrompt | undefined;
+  wordList: WordList;
 }
 
 type PageRenderer = (context: PageContext) => TemplateResult;
@@ -38,9 +41,12 @@ const PAGES: Readonly<Record<Route['tag'], PageRenderer>> = {
   'ss-page-history': ({ store, param }) =>
     html`<ss-page-history .store=${store} .gameId=${param}></ss-page-history>`,
   'ss-page-help': ({ store }) => html`<ss-page-help .store=${store}></ss-page-help>`,
-  'ss-page-settings': ({ store }) => html`<ss-page-settings .store=${store}></ss-page-settings>`,
-  'ss-page-turn': ({ store, param }) =>
-    html`<ss-page-turn .store=${store} .turnId=${param}></ss-page-turn>`,
+  'ss-page-settings': ({ store, wordList }) =>
+    html`<ss-page-settings .store=${store} .wordList=${wordList}></ss-page-settings>`,
+  'ss-page-lookup': ({ store, wordList }) =>
+    html`<ss-page-lookup .store=${store} .wordList=${wordList}></ss-page-lookup>`,
+  'ss-page-turn': ({ store, param, wordList }) =>
+    html`<ss-page-turn .store=${store} .turnId=${param} .wordList=${wordList}></ss-page-turn>`,
 };
 
 /**
@@ -68,6 +74,9 @@ export class SsApp extends LitElement {
     globalThis.navigator?.storage?.persist?.() ?? Promise.resolve(false);
 
   #persistenceRequested = false;
+
+  /** The word list, shared by every page that checks words; loaded on first use. */
+  @property({ attribute: false }) wordList = new WordList();
 
   /** Keeps the screen on during games; replaceable in tests. */
   @property({ attribute: false }) wakeLock = new ScreenWakeLock();
@@ -142,6 +151,7 @@ export class SsApp extends LitElement {
           store: this.store,
           param: this.route.param,
           installer: this.installer,
+          wordList: this.wordList,
         })}
       </ss-app-shell>
     `;

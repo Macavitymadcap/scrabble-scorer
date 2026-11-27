@@ -30,6 +30,19 @@ describe('ss-app-shell', () => {
       .toHaveAttribute('href', '#/settings');
   });
 
+  it('links to checking a word from the main navigation', async () => {
+    // Arrange
+    await mount(create('ss-app-shell'));
+
+    // Act
+    const link = page
+      .getByRole('navigation', { name: 'Main' })
+      .getByRole('link', { name: 'Check a word' });
+
+    // Assert
+    await expect.element(link).toHaveAttribute('href', '#/lookup');
+  });
+
   it('marks the link for the current page', async () => {
     // Arrange
     await mount(create('ss-app-shell', { page: 'ss-page-help' }));

@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from 'vite-plus/test';
 import { page, userEvent } from 'vite-plus/test/browser/context';
 import { play, word } from '../../../domain/testing.ts';
 import type { TurnInput } from '../../../domain/types.ts';
-import { create, mount } from '../../testing.ts';
+import { WordList } from '../../../words/word-list.ts';
+import { create, mount, testWordList, unavailableWordList } from '../../testing.ts';
 import './ss-turn-form.ts';
 import type { SaveTurnEvent, SsTurnForm } from './ss-turn-form.ts';
 
@@ -555,6 +556,137 @@ describe('ss-turn-form', () => {
 
       // Assert
       await expect.element(page.getByRole('link', { name: 'Cancel' })).toBeVisible();
+    });
+  });
+
+  describe('word list check', () => {
+    const checkText = (form: SsTurnForm, index = 0) =>
+      form.shadowRoot?.querySelector(`[data-index="${index}"] .word-check`)?.textContent;
+
+    const mountChecking = (wordList = testWordList(['cat', 'quiz']), turn?: TurnInput) =>
+      mount(create('ss-turn-form', { turn, wordList, checkWords: true }));
+
+    it('says a word is in the list', async () => {
+      // Arrange
+      const form = await mountChecking();
+
+      // Act
+      await userEvent.fill(lettersField(), 'quiz');
+
+      // Assert
+      await expect.poll(() => checkText(form)).toBe('In the word list');
+    });
+
+    it('says a word is not in the list', async () => {
+      // Arrange
+      const form = await mountChecking();
+
+      // Act
+      await userEvent.fill(lettersField(), 'quixe');
+
+      // Assert
+      await expect.poll(() => checkText(form)).toBe('Not in the word list');
+    });
+
+    it('checks every word in the turn', async () => {
+      // Arrange
+      const form = await mountChecking(testWordList(['cat']), play([word('CAT'), word('XI')]));
+
+      // Act
+      await form.updateComplete;
+
+      // Assert
+      await expect.poll(() => checkText(form, 1)).toBe('Not in the word list');
+    });
+
+    it('says nothing for fewer than two letters', async () => {
+      // Arrange
+      const form = await mountChecking();
+
+      // Act
+      await userEvent.fill(lettersField(), 'q');
+
+      // Assert
+      expect(checkText(form)).toBeUndefined();
+    });
+
+    it('says nothing when checking is turned off', async () => {
+      // Arrange
+      const form = await mount(
+        create('ss-turn-form', { wordList: testWordList(), checkWords: false }),
+      );
+
+      // Act
+      await userEvent.fill(lettersField(), 'quiz');
+
+      // Assert
+      expect(checkText(form)).toBeUndefined();
+    });
+
+    it('says nothing when the list cannot be loaded', async () => {
+      // Arrange
+      const wordList = unavailableWordList();
+      const form = await mountChecking(wordList);
+      await wordList.load();
+
+      // Act
+      await userEvent.fill(lettersField(), 'quiz');
+
+      // Assert
+      expect(checkText(form)).toBeUndefined();
+    });
+
+    it('starts loading the list when checking is on', async () => {
+      // Arrange
+      const wordList = testWordList();
+
+      // Act
+      await mountChecking(wordList);
+
+      // Assert
+      expect(wordList.status).not.toBe('idle');
+    });
+
+    it('does not load the list when checking is off', async () => {
+      // Arrange
+      const wordList = testWordList();
+
+      // Act
+      await mount(create('ss-turn-form', { wordList, checkWords: false }));
+
+      // Assert
+      expect(wordList.status).toBe('idle');
+    });
+
+    it('never stops a turn being saved', async () => {
+      // Arrange
+      const form = await mountChecking();
+      const saved = listenForSave(form);
+      await userEvent.fill(lettersField(), 'quixe');
+
+      // Act
+      await userEvent.click(button('Save turn'));
+
+      // Assert
+      expect(saved).toHaveBeenCalledOnce();
+    });
+
+    it('stops listening to the list once removed', async () => {
+      // Arrange
+      let finishLoading: (text: string) => void = () => undefined;
+      const wordList = new WordList({
+        fetchText: () => new Promise<string>((resolve) => (finishLoading = resolve)),
+      });
+      const form = await mountChecking(wordList);
+      const requestUpdate = vi.spyOn(form, 'requestUpdate');
+      form.remove();
+
+      // Act
+      finishLoading('cat\n');
+      await wordList.load();
+
+      // Assert
+      expect(requestUpdate).not.toHaveBeenCalled();
     });
   });
 

@@ -3,7 +3,7 @@ import { page, userEvent } from 'vite-plus/test/browser/context';
 import { play, word } from '../../../domain/testing.ts';
 import type { GameStore } from '../../../state/store.ts';
 import { GAME } from '../../router.ts';
-import { create, mount, storeWithGame, testStore } from '../../testing.ts';
+import { create, mount, storeWithGame, testStore, testWordList } from '../../testing.ts';
 import './ss-page-turn.ts';
 
 const heading = () => page.getByRole('heading', { level: 1 });
@@ -172,6 +172,42 @@ describe('ss-page-turn', () => {
 
       // Assert
       await expect.element(page.getByRole('radio', { name: 'Passed' })).toBeChecked();
+    });
+  });
+
+  describe('word checks', () => {
+    it('passes the word list to the form', async () => {
+      // Arrange
+      const wordList = testWordList();
+
+      // Act
+      const turnPage = await mount(create('ss-page-turn', { store: storeWithGame(), wordList }));
+
+      // Assert
+      expect(turnPage.shadowRoot?.querySelector('ss-turn-form')?.wordList).toBe(wordList);
+    });
+
+    it('checks words when the setting is on', async () => {
+      // Arrange
+      const store = storeWithGame();
+
+      // Act
+      const turnPage = await mount(create('ss-page-turn', { store, wordList: testWordList() }));
+
+      // Assert
+      expect(turnPage.shadowRoot?.querySelector('ss-turn-form')?.checkWords).toBe(true);
+    });
+
+    it('does not check words when the setting is off', async () => {
+      // Arrange
+      const store = storeWithGame();
+      store.updateSettings({ checkWords: false });
+
+      // Act
+      const turnPage = await mount(create('ss-page-turn', { store, wordList: testWordList() }));
+
+      // Assert
+      expect(turnPage.shadowRoot?.querySelector('ss-turn-form')?.checkWords).toBe(false);
     });
   });
 

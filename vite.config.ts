@@ -37,6 +37,19 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest}'],
+        // Take control of the open page as soon as the first service worker
+        // activates, so the word list is cached even on a first visit. New
+        // versions still wait for the player to choose Reload (no skipWaiting).
+        clientsClaim: true,
+        // The word list (~1.7 MB) isn't precached; it's cached the first time
+        // it's fetched. Its name is content-hashed, so a new list is a new URL.
+        runtimeCaching: [
+          {
+            urlPattern: /\/assets\/en-gb-[\w-]+\.txt$/,
+            handler: 'CacheFirst',
+            options: { cacheName: 'word-list', expiration: { maxEntries: 2 } },
+          },
+        ],
       },
     }),
   ],
@@ -47,7 +60,7 @@ export default defineConfig({
         extends: true,
         test: {
           name: 'unit',
-          include: ['src/**/*.test.ts'],
+          include: ['src/**/*.test.ts', 'scripts/**/*.test.ts'],
           exclude: ['src/**/*.browser.test.ts'],
           environment: 'node',
         },
@@ -82,7 +95,7 @@ export default defineConfig({
     ],
     coverage: {
       provider: 'v8',
-      include: ['src/**/*.ts'],
+      include: ['src/**/*.ts', 'scripts/wordlist.ts'],
       exclude: ['src/**/*.test.ts', 'src/**/testing.ts', 'src/ui/test-setup.ts', 'src/main.ts'],
       thresholds: {
         // The rules and their persistence; keep them fully covered.

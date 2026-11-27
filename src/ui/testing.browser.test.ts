@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vite-plus/test';
 import './components/templates/ss-app-shell.ts';
 import { html } from 'lit';
-import { create, isoClock, mount, renderTemplate, storeWithGame, testStore } from './testing.ts';
+import {
+  create,
+  isoClock,
+  mount,
+  renderTemplate,
+  storeWithGame,
+  testStore,
+  testWordList,
+  unavailableWordList,
+} from './testing.ts';
 
 describe('create (test helper)', () => {
   it('makes an element with the given properties', () => {
@@ -81,5 +90,31 @@ describe('renderTemplate (test helper)', () => {
     // Assert
     expect(container.isConnected).toBe(true);
     expect(container.textContent).toContain('Hello');
+  });
+});
+
+describe('testWordList (test helper)', () => {
+  it('holds the given words', async () => {
+    // Arrange
+    const list = testWordList(['qi']);
+
+    // Act
+    await list.load();
+
+    // Assert
+    expect(list.contains('qi')).toBe(true);
+  });
+});
+
+describe('unavailableWordList (test helper)', () => {
+  it('never loads', async () => {
+    // Arrange
+    const list = unavailableWordList();
+
+    // Act
+    const loaded = await list.load();
+
+    // Assert
+    expect(loaded).toBe(false);
   });
 });

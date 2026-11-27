@@ -1,6 +1,10 @@
 import { css, html, type TemplateResult } from 'lit';
 import { customElement } from 'lit/decorators.js';
-import { GAME, NEW_GAME, SETTINGS } from '../../router.ts';
+import { GAME, LOOKUP, NEW_GAME, SETTINGS } from '../../router.ts';
+
+/** The word list's sources and licences, in the project repository. */
+const NOTICES_URL =
+  'https://github.com/Macavitymadcap/scrabble-scorer/blob/main/THIRD_PARTY_NOTICES.md';
 import { PageElement } from './page-element.ts';
 
 /** One help topic: its summary (the toggle) and its content. */
@@ -82,6 +86,27 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
         Use <strong>Pass</strong> on the scoreboard, or choose Passed, Exchanged tiles or Word
         withdrawn after a challenge when entering a turn. These score 0, but still count as the
         player's turn.
+      </p>
+    `,
+  },
+  {
+    summary: 'Checking words',
+    content: html`
+      <p>
+        Use <a href=${LOOKUP}>Check a word</a> in the header to look up any word. While entering a
+        turn, each word also shows whether it's in the word list. You can turn that off in
+        <a href=${SETTINGS}>Settings</a>.
+      </p>
+      <p>
+        The list is British English, about 169,000 words, built from the public domain ENABLE word
+        list (by Alan Beale and M. Cooper) and British spellings from SCOWL (by Kevin Atkinson). It
+        isn't the official Collins Scrabble Words, so a word missing from it may still be allowed.
+        Treat it as a guide: the app never stops you saving a turn.
+      </p>
+      <p>
+        See the
+        <a href=${NOTICES_URL} target="_blank" rel="noopener">third-party notices</a> for the
+        sources and their licences.
       </p>
     `,
   },
