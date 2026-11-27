@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vite-plus/test';
-import './templates/ss-app-shell.ts';
+import './components/templates/ss-app-shell.ts';
 import { html } from 'lit';
 import { create, isoClock, mount, renderTemplate, storeWithGame, testStore } from './testing.ts';
 
