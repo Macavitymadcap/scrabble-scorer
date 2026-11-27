@@ -2,8 +2,8 @@ import { LitElement, css } from 'lit';
 import { property } from 'lit/decorators.js';
 import type { GameStore, StoreState } from '../../../state/store.ts';
 import { buttonStyles } from '../atoms/button-styles.ts';
-import { StoreController } from '../../controllers/store-controller.ts';
-import { baseStyles } from '../../styles/base.ts';
+import { StoreController } from '../../store-controller.ts';
+import { baseStyles } from '../../base-styles.ts';
 
 /** Layout shared by every page. */
 export const pageStyles = css`

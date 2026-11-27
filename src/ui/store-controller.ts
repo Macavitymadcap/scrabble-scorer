@@ -1,5 +1,5 @@
 import type { ReactiveController, ReactiveControllerHost } from 'lit';
-import type { GameStore, StoreState } from '../../state/store.ts';
+import type { GameStore, StoreState } from '../state/store.ts';
 
 /**
  * Connects a Lit element to the GameStore: subscribes while the element is

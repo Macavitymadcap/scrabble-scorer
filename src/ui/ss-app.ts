@@ -1,17 +1,17 @@
 import { LitElement, html, type PropertyValues, type TemplateResult } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import type { GameStore } from '../../state/store.ts';
-import { StoreController } from '../controllers/store-controller.ts';
-import type { PageElement } from './pages/page-element.ts';
-import './pages/ss-page-game.ts';
-import './pages/ss-page-home.ts';
-import './pages/ss-page-new-game.ts';
-import './pages/ss-page-end.ts';
-import './pages/ss-page-history.ts';
-import './pages/ss-page-results.ts';
-import './pages/ss-page-turn.ts';
-import { resolveRoute, type ResolvedRoute, type Route } from '../router.ts';
-import './templates/ss-app-shell.ts';
+import type { GameStore } from '../state/store.ts';
+import { StoreController } from './store-controller.ts';
+import type { PageElement } from './components/pages/page-element.ts';
+import './components/pages/ss-page-game.ts';
+import './components/pages/ss-page-home.ts';
+import './components/pages/ss-page-new-game.ts';
+import './components/pages/ss-page-end.ts';
+import './components/pages/ss-page-history.ts';
+import './components/pages/ss-page-results.ts';
+import './components/pages/ss-page-turn.ts';
+import { resolveRoute, type ResolvedRoute, type Route } from './router.ts';
+import './components/templates/ss-app-shell.ts';
 
 type PageRenderer = (store: GameStore | undefined, param: string | undefined) => TemplateResult;
 

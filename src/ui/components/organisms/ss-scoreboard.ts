@@ -7,9 +7,9 @@ import {
   type ScoredTurn,
 } from '../../../domain/game.ts';
 import { byTurnKind, type Game, type Player, type TurnStrategies } from '../../../domain/types.ts';
-import { visuallyHiddenStyles } from '../atoms/visually-hidden.ts';
+import { visuallyHiddenStyles } from '../atoms/visually-hidden-styles.ts';
 import { turnPath } from '../../router.ts';
-import { baseStyles } from '../../styles/base.ts';
+import { baseStyles } from '../../base-styles.ts';
 
 /** What a scoreboard cell shows for each kind of turn. */
 const cellText = ({ turn, score }: ScoredTurn): string => {

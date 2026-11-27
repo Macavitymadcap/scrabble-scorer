@@ -289,7 +289,11 @@ Atomic Design layout. Built so far in **bold**; the rest are planned:
 | Organisms | **`ss-new-game-form`, `ss-scoreboard`, `ss-turn-form`, `ss-endgame-form`, `ss-results`**; `ss-word-check`                                                                          |
 | Templates | **`ss-app-shell`** (header with app name, notices, main)                                                                                                                           |
 | Pages     | **`ss-page-home`, `ss-page-new-game`, `ss-page-game`** (scoreboard), **`ss-page-turn`, `ss-page-end`, `ss-page-results`, `ss-page-history`**; `ss-page-lookup`, `ss-page-settings` |
-| Root      | **`ss-app`**: follows the hash, renders the page in the shell, passes it the store                                                                                                 |
+
+Outside these levels, **`ss-app`** (`src/ui/ss-app.ts`) follows the hash,
+renders the matching page inside the shell and passes it the store. It's
+application wiring rather than a component, so it isn't one of the five
+levels.
 
 ### Routing
 
@@ -338,35 +342,55 @@ Atomic Design layout. Built so far in **bold**; the rest are planned:
 
 ### Source layout
 
+**Rule:** each layer (`domain`, `state`, `ui`, later `words`) is a **flat
+folder of modules**, with each module's test beside it (`*.test.ts`, or
+`*.browser.test.ts` for browser tests). A subfolder appears only for a real
+classification with several members. Today that's only the Atomic Design
+levels under `ui/components/`, which holds those five levels and nothing
+else. A one- or two-file group stays flat; if a group grows (say, three or
+more controllers), it earns a folder then.
+
 ```
 src/
-  domain/      tiles.ts, scoring.ts, endgame.ts, validation.ts,
-               game.ts (create, reducer, selectors), types.ts,
-               word-entry.ts (tile marks, retile, word-square limits),
-               endgame-entry.ts (rack text, rack errors, who went out),
-               testing.ts (test helpers)
-  state/       store.ts, storage.ts, migrations.ts, schema.ts (validation
-               on load), testing.ts (test fixtures)
-  words/       lexicon.ts (load + lookup), import.ts (user list, IndexedDB)
-  ui/
-    components/  everything rendered, by Atomic Design level:
-      atoms/       button-styles.ts, field-styles.ts, visually-hidden.ts, tile.ts
-      molecules/   ss-confirm-dialog.ts, word-row.ts
-      organisms/   ss-new-game-form.ts, ss-scoreboard.ts, ss-turn-form.ts,
-                   ss-endgame-form.ts, ss-results.ts
-      templates/   ss-app-shell.ts
-      pages/       page-element.ts (base class), ss-page-*.ts
-      ss-app.ts    (root element)
-    controllers/ store-controller.ts
-    styles/      base.ts (shared Lit css for every shadow root)
-    router.ts    routes, route parameters, navigation
-    format.ts    signed numbers, dates, name lists
+  main.ts            entry: picks storage, creates the store, mounts <ss-app>
+  domain/            rules only, no DOM or storage
+    tiles.ts, scoring.ts, endgame.ts, validation.ts, types.ts,
+    game.ts (create, reducer, selectors),
+    word-entry.ts (tile marks, retile, word-square limits),
+    endgame-entry.ts (rack text, rack errors, who went out),
+    testing.ts (test helpers)
+  state/             store and persistence
+    store.ts, storage.ts, migrations.ts, schema.ts (validation on load),
+    testing.ts (test fixtures)
+  words/             (stretch) lexicon.ts (load + lookup), import.ts (IndexedDB)
+  ui/                UI infrastructure, flat
+    ss-app.ts        root element: routing, store, document title, focus
+    router.ts        routes, route parameters, navigation
+    store-controller.ts  Lit controller connecting pages to the store
+    base-styles.ts   shared Lit css for every shadow root
+    global.css       Open Props imports, colour tokens, page base
+    format.ts        signed numbers, dates, name lists
     testing.ts, test-setup.ts (browser test helpers)
-  styles/      global.css (Open Props imports, colour tokens, page base)
-  main.ts      (creates the store and hands it to <ss-app>)
+    components/      the five Atomic Design levels, nothing else
+      atoms/         button-styles.ts, field-styles.ts,
+                     visually-hidden-styles.ts, tile.ts
+      molecules/     ss-confirm-dialog.ts, word-row.ts
+      organisms/     ss-new-game-form.ts, ss-scoreboard.ts, ss-turn-form.ts,
+                     ss-endgame-form.ts, ss-results.ts
+      templates/     ss-app-shell.ts
+      pages/         page-element.ts (base class), ss-page-*.ts
 scripts/
-  build-wordlist.ts
+  build-wordlist.ts  (stretch)
 ```
+
+**Naming:**
+
+- Custom elements are `ss-<name>.ts`.
+- Lit style modules end in `-styles.ts`.
+- Everything else is kebab-case.
+
+`ss-app` sits outside `components/`: it renders nothing of its own and only
+wires pages to the URL and the store, so it isn't an Atomic Design level.
 
 ## Data model and persistence
 

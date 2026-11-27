@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { page, userEvent } from 'vite-plus/test/browser/context';
-import { KEYS, createMemoryStorage } from '../../state/storage.ts';
-import { GameStore } from '../../state/store.ts';
-import { APP_NAME, GAME, NEW_GAME, historyPath, turnPath } from '../router.ts';
+import { KEYS, createMemoryStorage } from '../state/storage.ts';
+import { GameStore } from '../state/store.ts';
+import { APP_NAME, GAME, NEW_GAME, historyPath, turnPath } from './router.ts';
 import './ss-app.ts';
 import type { SsApp } from './ss-app.ts';
-import { create, mount, testStore } from '../testing.ts';
+import { create, mount, testStore } from './testing.ts';
 
 /** Resolves after the next hashchange event (the app's own listener runs first). */
 const nextHashChange = () =>

@@ -4,8 +4,8 @@ import { repeat } from 'lit/directives/repeat.js';
 import { MAX_PLAYERS, MIN_PLAYERS } from '../../../domain/validation.ts';
 import { buttonStyles } from '../atoms/button-styles.ts';
 import { fieldStyles } from '../atoms/field-styles.ts';
-import { visuallyHiddenStyles } from '../atoms/visually-hidden.ts';
-import { baseStyles } from '../../styles/base.ts';
+import { visuallyHiddenStyles } from '../atoms/visually-hidden-styles.ts';
+import { baseStyles } from '../../base-styles.ts';
 
 /** Fired with the trimmed player names, in turn order, when the form is valid. */
 export class StartGameEvent extends Event {

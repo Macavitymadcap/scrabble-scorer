@@ -1,7 +1,7 @@
 import type { ReactiveController, ReactiveControllerHost } from 'lit';
 import { describe, expect, it, vi } from 'vite-plus/test';
-import { GameStore } from '../../state/store.ts';
-import { createMemoryStorage } from '../../state/storage.ts';
+import { GameStore } from '../state/store.ts';
+import { createMemoryStorage } from '../state/storage.ts';
 import { StoreController } from './store-controller.ts';
 
 /** A minimal stand-in for a Lit element, with its requestUpdate spy. */

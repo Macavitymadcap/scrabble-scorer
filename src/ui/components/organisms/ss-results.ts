@@ -3,7 +3,7 @@ import { customElement, property } from 'lit/decorators.js';
 import { bestTurn, bestWord, roundOf, standings } from '../../../domain/game.ts';
 import type { Game, Player } from '../../../domain/types.ts';
 import { joinNames, signed } from '../../format.ts';
-import { baseStyles } from '../../styles/base.ts';
+import { baseStyles } from '../../base-styles.ts';
 
 const nameOf = (game: Game, playerId: string): string =>
   game.players.find((player: Player) => player.id === playerId)?.name ?? 'Unknown player';

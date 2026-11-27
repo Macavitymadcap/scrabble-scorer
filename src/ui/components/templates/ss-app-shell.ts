@@ -2,7 +2,7 @@ import { LitElement, css, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { buttonStyles } from '../atoms/button-styles.ts';
 import { APP_NAME, HOME } from '../../router.ts';
-import { baseStyles } from '../../styles/base.ts';
+import { baseStyles } from '../../base-styles.ts';
 
 /** Fired when the player dismisses the notice. */
 export class DismissNoticeEvent extends Event {

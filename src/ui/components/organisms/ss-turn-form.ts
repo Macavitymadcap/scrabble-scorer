@@ -19,9 +19,9 @@ import {
 import { buttonStyles } from '../atoms/button-styles.ts';
 import { fieldStyles } from '../atoms/field-styles.ts';
 import { MARK_LABELS, tileStyles } from '../atoms/tile.ts';
-import { visuallyHiddenStyles } from '../atoms/visually-hidden.ts';
+import { visuallyHiddenStyles } from '../atoms/visually-hidden-styles.ts';
 import { renderWordRow, wordLegend, wordRowStyles } from '../molecules/word-row.ts';
-import { baseStyles } from '../../styles/base.ts';
+import { baseStyles } from '../../base-styles.ts';
 
 /** Fired with the turn when the form is valid and submitted. */
 export class SaveTurnEvent extends Event {

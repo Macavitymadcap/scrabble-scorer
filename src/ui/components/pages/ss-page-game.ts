@@ -3,7 +3,7 @@ import { customElement, query, state } from 'lit/decorators.js';
 import { currentRound, nextPlayer, roundOf } from '../../../domain/game.ts';
 import type { Game } from '../../../domain/types.ts';
 import type { Outcome } from '../../../state/store.ts';
-import { visuallyHiddenStyles } from '../atoms/visually-hidden.ts';
+import { visuallyHiddenStyles } from '../atoms/visually-hidden-styles.ts';
 import '../molecules/ss-confirm-dialog.ts';
 import type { SsConfirmDialog } from '../molecules/ss-confirm-dialog.ts';
 import '../organisms/ss-scoreboard.ts';

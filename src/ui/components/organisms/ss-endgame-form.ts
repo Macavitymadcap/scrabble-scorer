@@ -7,9 +7,9 @@ import type { EndGame, Game, Player } from '../../../domain/types.ts';
 import { RACK_SIZE } from '../../../domain/validation.ts';
 import { buttonStyles } from '../atoms/button-styles.ts';
 import { fieldStyles } from '../atoms/field-styles.ts';
-import { visuallyHiddenStyles } from '../atoms/visually-hidden.ts';
+import { visuallyHiddenStyles } from '../atoms/visually-hidden-styles.ts';
 import { signed } from '../../format.ts';
-import { baseStyles } from '../../styles/base.ts';
+import { baseStyles } from '../../base-styles.ts';
 
 /** Fired with the end game when the form is valid and submitted. */
 export class FinishGameEvent extends Event {

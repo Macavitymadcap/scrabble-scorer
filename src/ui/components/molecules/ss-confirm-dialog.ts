@@ -1,7 +1,7 @@
 import { LitElement, css, html } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
 import { buttonStyles } from '../atoms/button-styles.ts';
-import { baseStyles } from '../../styles/base.ts';
+import { baseStyles } from '../../base-styles.ts';
 
 export interface ConfirmOptions {
   heading: string;
