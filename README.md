@@ -14,6 +14,10 @@ npm install
 npm run dev
 ```
 
+Component tests (`*.browser.test.ts`) run in headless Chromium through
+Playwright. If Playwright's Chromium for the pinned version isn't already in
+`~/.cache/ms-playwright`, install it once with `npx playwright install chromium`.
+
 | Script                  | What it does                                   |
 | ----------------------- | ---------------------------------------------- |
 | `npm run dev`           | Start the dev server                           |
