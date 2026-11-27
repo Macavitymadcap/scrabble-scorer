@@ -1,7 +1,14 @@
 /** A page the app can show, keyed by its base hash in ROUTES. */
 export interface Route {
   /** The page's custom element tag. */
-  tag: 'ss-page-home' | 'ss-page-new-game' | 'ss-page-game' | 'ss-page-turn';
+  tag:
+    | 'ss-page-home'
+    | 'ss-page-new-game'
+    | 'ss-page-game'
+    | 'ss-page-turn'
+    | 'ss-page-end'
+    | 'ss-page-results'
+    | 'ss-page-history';
   /** The document title while this page is shown. */
   title: string;
 }
@@ -15,6 +22,9 @@ export const HOME = '#/';
 export const NEW_GAME = '#/new';
 export const GAME = '#/game';
 export const TURN = '#/turn';
+export const END = '#/end';
+export const RESULTS = '#/results';
+export const HISTORY = '#/history';
 
 export const APP_NAME = 'Scrabble Scorer';
 
@@ -26,6 +36,9 @@ export const ROUTES: ReadonlyMap<string, Route> = new Map([
   [NEW_GAME, { tag: 'ss-page-new-game', title: `New game - ${APP_NAME}` }],
   [GAME, { tag: 'ss-page-game', title: `Scoreboard - ${APP_NAME}` }],
   [TURN, { tag: 'ss-page-turn', title: `Turn - ${APP_NAME}` }],
+  [END, { tag: 'ss-page-end', title: `End game - ${APP_NAME}` }],
+  [RESULTS, { tag: 'ss-page-results', title: `Results - ${APP_NAME}` }],
+  [HISTORY, { tag: 'ss-page-history', title: `Game history - ${APP_NAME}` }],
 ]);
 
 /** Decodes a hash parameter. A malformed escape is kept as typed, so the page can say it wasn't found. */
@@ -58,6 +71,10 @@ export const resolveRoute = (hash: string): ResolvedRoute => {
 /** The hash for recording a new turn, or editing the turn with this id. */
 export const turnPath = (turnId?: string): string =>
   turnId === undefined ? TURN : `${TURN}/${encodeURIComponent(turnId)}`;
+
+/** The hash for the history list, or one past game's results. */
+export const historyPath = (gameId?: string): string =>
+  gameId === undefined ? HISTORY : `${HISTORY}/${encodeURIComponent(gameId)}`;
 
 /** Navigates to a route by changing the URL hash. */
 export const navigate = (

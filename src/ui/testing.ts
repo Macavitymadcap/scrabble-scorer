@@ -1,7 +1,7 @@
 import { render, type LitElement, type TemplateResult } from 'lit';
 import { GameStore } from '../state/store.ts';
 import { createMemoryStorage } from '../state/storage.ts';
-import { sequentialClock, sequentialIds } from '../state/testing.ts';
+import { sequentialIds } from '../state/testing.ts';
 
 /** Creates an element with the given properties set, without mounting it. */
 export const create = <K extends keyof HTMLElementTagNameMap>(
@@ -16,9 +16,19 @@ export const mount = async <T extends LitElement>(element: T): Promise<T> => {
   return element;
 };
 
+/** A clock returning real ISO times a minute apart, from 27 Nov 2026 19:00 UTC. */
+export const isoClock = (start = Date.UTC(2026, 10, 27, 19, 0)): (() => string) => {
+  let minutes = 0;
+  return () => {
+    const time = new Date(start + minutes * 60_000).toISOString();
+    minutes += 1;
+    return time;
+  };
+};
+
 /** A store backed by memory, with predictable times and ids. */
 export const testStore = (): GameStore =>
-  new GameStore({ storage: createMemoryStorage(), now: sequentialClock(), newId: sequentialIds() });
+  new GameStore({ storage: createMemoryStorage(), now: isoClock(), newId: sequentialIds() });
 
 /** A store with a game started for the given players. */
 export const storeWithGame = (names: readonly string[] = ['Ann', 'Bob']): GameStore => {

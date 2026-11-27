@@ -6,6 +6,7 @@ import {
   NEW_GAME,
   ROUTES,
   TURN,
+  historyPath,
   navigate,
   resolveRoute,
   turnPath,
@@ -201,6 +202,58 @@ describe('turnPath', () => {
 
     // Assert
     expect(resolveRoute(path).param).toBe(turnId);
+  });
+});
+
+describe('end game, results and history routes', () => {
+  it.each([
+    ['#/end', 'ss-page-end'],
+    ['#/results', 'ss-page-results'],
+    ['#/history', 'ss-page-history'],
+  ])('resolves %s to %s', (hash, tag) => {
+    // Arrange
+    const input = hash;
+
+    // Act
+    const route = resolveRoute(input);
+
+    // Assert
+    expect(route.tag).toBe(tag);
+  });
+
+  it('passes a past game id to the history page', () => {
+    // Arrange
+    const hash = '#/history/g42';
+
+    // Act
+    const route = resolveRoute(hash);
+
+    // Assert
+    expect(route.param).toBe('g42');
+  });
+});
+
+describe('historyPath', () => {
+  it('is the history hash for the list', () => {
+    // Arrange
+    const gameId = undefined;
+
+    // Act
+    const path = historyPath(gameId);
+
+    // Assert
+    expect(path).toBe('#/history');
+  });
+
+  it("adds the game id for one game's results", () => {
+    // Arrange
+    const gameId = 'a b';
+
+    // Act
+    const path = historyPath(gameId);
+
+    // Assert
+    expect(resolveRoute(path).param).toBe('a b');
   });
 });
 

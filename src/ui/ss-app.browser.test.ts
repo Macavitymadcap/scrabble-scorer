@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vite-plus/test';
 import { page, userEvent } from 'vite-plus/test/browser/context';
 import { KEYS, createMemoryStorage } from '../state/storage.ts';
 import { GameStore } from '../state/store.ts';
-import { APP_NAME, GAME, NEW_GAME, turnPath } from './router.ts';
+import { APP_NAME, GAME, NEW_GAME, historyPath, turnPath } from './router.ts';
 import './ss-app.ts';
 import type { SsApp } from './ss-app.ts';
 import { create, mount, testStore } from './testing.ts';
@@ -76,6 +76,31 @@ describe('ss-app', () => {
 
     // Assert
     expect((currentPage(app) as { turnId?: string } | null)?.turnId).toBe('t7');
+  });
+
+  it('passes the game id from the hash to the history page', async () => {
+    // Arrange
+    const app = await mount(create('ss-app', { store: testStore() }));
+
+    // Act
+    await goTo(app, historyPath('g9'));
+
+    // Assert
+    expect((currentPage(app) as { gameId?: string } | null)?.gameId).toBe('g9');
+  });
+
+  it.each([
+    ['#/end', 'SS-PAGE-END'],
+    ['#/results', 'SS-PAGE-RESULTS'],
+  ])('shows the page for %s', async (hash, tagName) => {
+    // Arrange
+    const app = await mount(create('ss-app', { store: testStore() }));
+
+    // Act
+    await goTo(app, hash);
+
+    // Assert
+    expect(currentPage(app)?.tagName).toBe(tagName);
   });
 
   it('shows the home page for an unknown hash', async () => {

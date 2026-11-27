@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vite-plus/test';
-import './templates/ss-app-shell.ts';
+import './components/templates/ss-app-shell.ts';
 import { html } from 'lit';
-import { create, mount, renderTemplate, storeWithGame, testStore } from './testing.ts';
+import { create, isoClock, mount, renderTemplate, storeWithGame, testStore } from './testing.ts';
 
 describe('create (test helper)', () => {
   it('makes an element with the given properties', () => {
@@ -28,6 +28,19 @@ describe('mount (test helper)', () => {
     // Assert
     expect(shell.isConnected).toBe(true);
     expect(shell.shadowRoot?.querySelector('header')).not.toBeNull();
+  });
+});
+
+describe('isoClock (test helper)', () => {
+  it('returns real ISO times a minute apart', () => {
+    // Arrange
+    const clock = isoClock(Date.UTC(2026, 0, 1, 12, 0));
+
+    // Act
+    const times = [clock(), clock()];
+
+    // Assert
+    expect(times).toEqual(['2026-01-01T12:00:00.000Z', '2026-01-01T12:01:00.000Z']);
   });
 });
 

@@ -367,6 +367,122 @@ describe('discardGame', () => {
   });
 });
 
+describe('history management', () => {
+  /** A store with two finished games in history (newest first: g2, g1) and none current. */
+  const storeWithHistory = (overrides: Partial<StoreOptions> = {}) => {
+    const store = storeWithGame(overrides);
+    store.finishGame(noTilesLeft);
+    store.startGame(['Cat', 'Dan']);
+    store.finishGame(noTilesLeft);
+    store.startGame(['Eve', 'Fay']);
+    store.discardGame();
+    return store;
+  };
+
+  const historyIds = (store: ReturnType<typeof makeStore>) =>
+    store.getState().history.map((game) => game.id);
+
+  it('deletes one game from history', () => {
+    // Arrange
+    const store = storeWithHistory();
+    const [newest, oldest] = historyIds(store);
+
+    // Act
+    store.deleteFromHistory(newest ?? '');
+
+    // Assert
+    expect(historyIds(store)).toEqual([oldest]);
+  });
+
+  it('saves the history after deleting', () => {
+    // Arrange
+    const storage = createMemoryStorage();
+    const store = storeWithHistory({ storage });
+    const [newest] = historyIds(store);
+
+    // Act
+    store.deleteFromHistory(newest ?? '');
+
+    // Assert
+    expect(savedHistory(storage)).toEqual(store.getState().history);
+  });
+
+  it('ignores an unknown id without notifying listeners', () => {
+    // Arrange
+    const store = storeWithHistory();
+    const listener = vi.fn();
+    store.subscribe(listener);
+
+    // Act
+    store.deleteFromHistory('nope');
+
+    // Assert
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it('keeps the current game when deleting from history', () => {
+    // Arrange
+    const store = storeWithHistory();
+    store.startGame(['Gil', 'Hal']);
+    const current = store.getState().game;
+    const [newest] = historyIds(store);
+
+    // Act
+    store.deleteFromHistory(newest ?? '');
+
+    // Assert
+    expect(store.getState().game).toBe(current);
+  });
+
+  it('clears all history', () => {
+    // Arrange
+    const store = storeWithHistory();
+
+    // Act
+    store.clearHistory();
+
+    // Assert
+    expect(store.getState().history).toEqual([]);
+  });
+
+  it('saves the empty history after clearing', () => {
+    // Arrange
+    const storage = createMemoryStorage();
+    const store = storeWithHistory({ storage });
+
+    // Act
+    store.clearHistory();
+
+    // Assert
+    expect(savedHistory(storage)).toEqual([]);
+  });
+
+  it('does nothing when clearing an empty history', () => {
+    // Arrange
+    const store = makeStore();
+    const listener = vi.fn();
+    store.subscribe(listener);
+
+    // Act
+    store.clearHistory();
+
+    // Assert
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it('can be passed as a callback and stay bound', () => {
+    // Arrange
+    const store = storeWithHistory();
+    const { clearHistory } = store;
+
+    // Act
+    clearHistory();
+
+    // Assert
+    expect(store.getState().history).toEqual([]);
+  });
+});
+
 describe('when saving fails', () => {
   it('keeps the change in memory', () => {
     // Arrange
