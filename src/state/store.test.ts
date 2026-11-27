@@ -500,7 +500,7 @@ describe('settings', () => {
     const store = makeStore({ storage });
 
     // Assert
-    expect(store.getState().settings).toEqual({ keepScreenOn: false });
+    expect(store.getState().settings).toEqual({ ...DEFAULT_SETTINGS, keepScreenOn: false });
   });
 
   it('turns keeping the screen on off', () => {
@@ -508,7 +508,7 @@ describe('settings', () => {
     const store = makeStore();
 
     // Act
-    store.setKeepScreenOn(false);
+    store.updateSettings({ keepScreenOn: false });
 
     // Assert
     expect(store.getState().settings.keepScreenOn).toBe(false);
@@ -520,10 +520,35 @@ describe('settings', () => {
     const store = makeStore({ storage });
 
     // Act
-    store.setKeepScreenOn(false);
+    store.updateSettings({ keepScreenOn: false });
 
     // Assert
-    expect(JSON.parse(storage.getItem(SETTINGS_KEY) ?? 'null')).toEqual({ keepScreenOn: false });
+    expect(JSON.parse(storage.getItem(SETTINGS_KEY) ?? 'null')).toEqual({
+      ...DEFAULT_SETTINGS,
+      keepScreenOn: false,
+    });
+  });
+
+  it('changes several settings at once', () => {
+    // Arrange
+    const store = makeStore();
+
+    // Act
+    store.updateSettings({ keepScreenOn: false, checkWords: false });
+
+    // Assert
+    expect(store.getState().settings).toEqual({ keepScreenOn: false, checkWords: false });
+  });
+
+  it('leaves settings it was not given unchanged', () => {
+    // Arrange
+    const store = makeStore();
+
+    // Act
+    store.updateSettings({ checkWords: false });
+
+    // Assert
+    expect(store.getState().settings.keepScreenOn).toBe(true);
   });
 
   it('notifies listeners', () => {
@@ -533,7 +558,7 @@ describe('settings', () => {
     store.subscribe(listener);
 
     // Act
-    store.setKeepScreenOn(false);
+    store.updateSettings({ keepScreenOn: false });
 
     // Assert
     expect(listener).toHaveBeenCalledOnce();
@@ -544,11 +569,11 @@ describe('settings', () => {
     const store = makeStore({ storage: failingStorage(['setItem']) });
 
     // Act
-    store.setKeepScreenOn(false);
+    store.updateSettings({ keepScreenOn: false });
 
     // Assert
     expect(store.getState()).toMatchObject({
-      settings: { keepScreenOn: false },
+      settings: { ...DEFAULT_SETTINGS, keepScreenOn: false },
       notice: MESSAGES.saveFailed,
     });
   });
