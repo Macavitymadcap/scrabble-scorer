@@ -11,8 +11,16 @@ const withTurn = (game: Game, turn: TurnInput, id: string): Game =>
   reduce(game, { type: 'addTurn', id, at: id, turn });
 
 /** The text of each cell in a row, header first. */
+/** A cell's visible text, leaving out text that's only there for screen readers. */
+const visibleText = (cell: HTMLTableCellElement): string => {
+  const copy = cell.cloneNode(true) as HTMLElement;
+  copy.querySelectorAll('.visually-hidden').forEach((hidden) => hidden.remove());
+  return copy.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+};
+
+/** The visible text of each cell in a row, header first. */
 const rowText = (row: HTMLTableRowElement | null | undefined): string[] =>
-  [...(row?.cells ?? [])].map((cell) => cell.textContent?.replace(/\s+/g, ' ').trim() ?? '');
+  [...(row?.cells ?? [])].map(visibleText);
 
 const table = (board: HTMLElement) => board.shadowRoot?.querySelector('table');
 
@@ -110,7 +118,54 @@ describe('ss-scoreboard', () => {
     const round2 = rowText(table(board)?.tBodies[0]?.rows[1]);
 
     // Assert
-    expect(round2).toEqual(['2', '5', '-Not played yet']);
+    expect(round2).toEqual(['2', '5', '-']);
+  });
+
+  it('tells screen readers a turn has not been played yet', async () => {
+    // Arrange
+    const game = withTurn(sampleGame(), play([word('DOG')]), 't3');
+    const board = await mount(create('ss-scoreboard', { game }));
+
+    // Act
+    const cell = table(board)?.tBodies[0]?.rows[1]?.cells[2];
+
+    // Assert
+    expect(cell?.textContent).toContain('Not played yet');
+  });
+
+  describe('edit links', () => {
+    it('link each score to editing that turn, named by player and round', async () => {
+      // Arrange
+      await mount(create('ss-scoreboard', { game: sampleGame() }));
+
+      // Act
+      const link = page.getByRole('link', { name: "5: edit Ann's round 1 turn" });
+
+      // Assert
+      await expect.element(link).toHaveAttribute('href', '#/turn/t1');
+    });
+
+    it('link passes too', async () => {
+      // Arrange
+      await mount(create('ss-scoreboard', { game: sampleGame() }));
+
+      // Act
+      const link = page.getByRole('link', { name: "Pass: edit Bob's round 1 turn" });
+
+      // Assert
+      await expect.element(link).toHaveAttribute('href', '#/turn/t2');
+    });
+
+    it('are not shown once the game has finished', async () => {
+      // Arrange
+      await mount(create('ss-scoreboard', { game: finishedGame() }));
+
+      // Act
+      const links = page.getByRole('link').elements();
+
+      // Assert
+      expect(links).toHaveLength(0);
+    });
   });
 
   it('shows totals in the footer', async () => {

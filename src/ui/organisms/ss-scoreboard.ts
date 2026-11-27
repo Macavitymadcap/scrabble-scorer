@@ -1,8 +1,9 @@
 import { LitElement, css, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { nextPlayer, playerTotals, scoreboardRounds, type ScoredTurn } from '../../domain/game.ts';
-import { byTurnKind, type Game, type TurnStrategies } from '../../domain/types.ts';
+import { byTurnKind, type Game, type Player, type TurnStrategies } from '../../domain/types.ts';
 import { visuallyHiddenStyles } from '../atoms/visually-hidden.ts';
+import { turnPath } from '../router.ts';
 import { baseStyles } from '../styles/base.ts';
 
 /** What a scoreboard cell shows for each kind of turn. */
@@ -95,6 +96,15 @@ export class SsScoreboard extends LitElement {
         text-decoration-thickness: var(--border-size-2);
       }
 
+      /* Each score links to editing its turn; the link fills the cell. */
+      .edit {
+        display: block;
+        min-block-size: 32px;
+        color: inherit;
+        text-decoration: underline;
+        text-decoration-style: dotted;
+      }
+
       .muted {
         color: var(--ss-text-muted);
       }
@@ -102,6 +112,23 @@ export class SsScoreboard extends LitElement {
   ];
 
   @property({ attribute: false }) game: Game | undefined;
+
+  /**
+   * A turn's cell: a link to edit it while the game is active, plain text
+   * once finished. The link's name starts with its visible text, so voice
+   * control users can say what they see.
+   */
+  #renderCell(scored: ScoredTurn, player: Player, round: number, game: Game) {
+    const text = cellText(scored);
+    return game.status === 'active'
+      ? html`<a
+          class="edit"
+          href=${turnPath(scored.turn.id)}
+          aria-label="${text}: edit ${player.name}'s round ${round} turn"
+          >${text}</a
+        >`
+      : text;
+  }
 
   override render() {
     const { game } = this;
@@ -138,7 +165,7 @@ export class SsScoreboard extends LitElement {
                   ${game.players.map((player) => {
                     const turn = round.turns[player.id];
                     return turn
-                      ? html`<td>${cellText(turn)}</td>`
+                      ? html`<td>${this.#renderCell(turn, player, round.round, game)}</td>`
                       : html`<td class="muted">
                           <span aria-hidden="true">-</span
                           ><span class="visually-hidden">Not played yet</span>
