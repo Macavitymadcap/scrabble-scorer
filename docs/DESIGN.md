@@ -163,6 +163,9 @@ flowchart LR
   Scoreboard --> EndGame[End game]
   EndGame --> Results[Final results]
   Results -->|play again| NewGame
+  Results -->|reopen| Scoreboard
+  Home --> History[Game history]
+  History --> PastGame[Past game results]
 ```
 
 - **Home**: start a new game, or resume the game in progress if there is one.
@@ -175,10 +178,35 @@ flowchart LR
 - **Turn entry**: as described in [Turn input UX](#turn-input-ux).
 - **Word lookup** (stretch): a free-text check for one word, reachable at any
   time.
-- **End game**: enter each player's unplayed tiles, choose who went out (if
-  anyone), then see the adjustments.
-- **Final results**: final scores, the winner, and the highest-scoring turn and
-  word. From here players can start a new game.
+- **End game** (`#/end`, reached from "End game" on the scoreboard):
+  - **Tiles left:** one field per player, typed as letters with `?` for a
+    blank (up to 7), showing each rack's value as you type.
+  - **Who went out?** radios: Nobody or a player. When exactly one rack is
+    left empty, that player is picked automatically, until the player picks
+    one by hand.
+  - **Checks:** a rack must hold at most 7 tiles, and the player who went out
+    must have an empty rack.
+  - **Preview:** a table of turn points, adjustment and total for each
+    player. **Finish game** then shows the results.
+- **Final results** (`#/results`):
+  - The outcome ("Ann wins with 55 points." or "Ann and Bob tie on 280
+    points.").
+  - The final ranking with turn points, end-game adjustment and total; the
+    winner or winners are in bold.
+  - The best turn and best word.
+  - Actions: **New game** (the same players are filled in, and starting moves
+    this game into history), **See the scoreboard**, and **Reopen game**,
+    which asks first, removes the adjustments and goes back to the
+    scoreboard to fix turns.
+- **Game history** (`#/history`):
+  - **The list:** finished games, newest first, each with its date
+    (`Intl.DateTimeFormat`, en-GB), scores and outcome, linking to
+    `#/history/<id>`. An invalid timestamp shows as "an unknown date" rather
+    than breaking the page.
+  - **One game:** its results, with **Delete this game**.
+  - **Deleting:** **Delete all saved games** is on the list. Both deletes ask
+    for confirmation first.
+  - **From home:** the saved-games count on the home page links here.
 - **Settings**: keep the screen awake during games (on by default). For the
   stretch goal it also offers choosing the word list (built-in or imported),
   importing or removing a list, and downloading it for offline use.
@@ -254,14 +282,14 @@ flowchart TD
 
 Atomic Design layout. Built so far in **bold**; the rest are planned:
 
-| Level     | Examples                                                                                                                                                             |
-| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Atoms     | **`buttonStyles`, `fieldStyles`, `visuallyHiddenStyles`** (shared styles for native elements); **tile** (`renderTile` + `tileStyles`)                                |
-| Molecules | **`ss-confirm-dialog`**; **word row** (`renderWordRow` + `wordRowStyles`: letters, tiles, word squares, score)                                                       |
-| Organisms | **`ss-new-game-form`, `ss-scoreboard`, `ss-turn-form`**; `ss-endgame-form`, `ss-word-check`                                                                          |
-| Templates | **`ss-app-shell`** (header with app name, notices, main)                                                                                                             |
-| Pages     | **`ss-page-home`, `ss-page-new-game`, `ss-page-game`** (scoreboard), **`ss-page-turn`**; `ss-page-end-game`, `ss-page-results`, `ss-page-lookup`, `ss-page-settings` |
-| Root      | **`ss-app`**: follows the hash, renders the page in the shell, passes it the store                                                                                   |
+| Level     | Examples                                                                                                                                                                           |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Atoms     | **`buttonStyles`, `fieldStyles`, `visuallyHiddenStyles`** (shared styles for native elements); **tile** (`renderTile` + `tileStyles`)                                              |
+| Molecules | **`ss-confirm-dialog`**; **word row** (`renderWordRow` + `wordRowStyles`: letters, tiles, word squares, score)                                                                     |
+| Organisms | **`ss-new-game-form`, `ss-scoreboard`, `ss-turn-form`, `ss-endgame-form`, `ss-results`**; `ss-word-check`                                                                          |
+| Templates | **`ss-app-shell`** (header with app name, notices, main)                                                                                                                           |
+| Pages     | **`ss-page-home`, `ss-page-new-game`, `ss-page-game`** (scoreboard), **`ss-page-turn`, `ss-page-end`, `ss-page-results`, `ss-page-history`**; `ss-page-lookup`, `ss-page-settings` |
+| Root      | **`ss-app`**: follows the hash, renders the page in the shell, passes it the store                                                                                                 |
 
 ### Routing
 
@@ -269,6 +297,8 @@ Atomic Design layout. Built so far in **bold**; the rest are planned:
   page and its document title:
   - `#/` home, `#/new` new game, `#/game` scoreboard
   - `#/turn` records a turn, and `#/turn/<id>` edits one
+  - `#/end` end game, `#/results` the current game's results
+  - `#/history` the list, and `#/history/<id>` a past game (`historyPath`)
 
   It's a `Map` so lookups never match inherited keys like `toString`.
 
@@ -313,19 +343,24 @@ src/
   domain/      tiles.ts, scoring.ts, endgame.ts, validation.ts,
                game.ts (create, reducer, selectors), types.ts,
                word-entry.ts (tile marks, retile, word-square limits),
+               endgame-entry.ts (rack text, rack errors, who went out),
                testing.ts (test helpers)
   state/       store.ts, storage.ts, migrations.ts, schema.ts (validation
                on load), testing.ts (test fixtures)
   words/       lexicon.ts (load + lookup), import.ts (user list, IndexedDB)
   ui/
-    atoms/       button-styles.ts, field-styles.ts, visually-hidden.ts, tile.ts
-    molecules/   ss-confirm-dialog.ts, word-row.ts
-    organisms/   ss-new-game-form.ts, ss-scoreboard.ts, ss-turn-form.ts
-    templates/   ss-app-shell.ts
-    pages/       page-element.ts (base class), ss-page-*.ts
+    components/  everything rendered, by Atomic Design level:
+      atoms/       button-styles.ts, field-styles.ts, visually-hidden.ts, tile.ts
+      molecules/   ss-confirm-dialog.ts, word-row.ts
+      organisms/   ss-new-game-form.ts, ss-scoreboard.ts, ss-turn-form.ts,
+                   ss-endgame-form.ts, ss-results.ts
+      templates/   ss-app-shell.ts
+      pages/       page-element.ts (base class), ss-page-*.ts
+      ss-app.ts    (root element)
     controllers/ store-controller.ts
     styles/      base.ts (shared Lit css for every shadow root)
-    router.ts, ss-app.ts (root element)
+    router.ts    routes, route parameters, navigation
+    format.ts    signed numbers, dates, name lists
     testing.ts, test-setup.ts (browser test helpers)
   styles/      global.css (Open Props imports, colour tokens, page base)
   main.ts      (creates the store and hands it to <ss-app>)
@@ -495,6 +530,9 @@ when passed as callbacks (`@click=${store.undoTurn}`). Private helpers
   - `startGame` moves a finished current game into history. It discards an
     active one; the UI asks the player to confirm first.
   - `discardGame()` drops the current game without adding it to history.
+  - `deleteFromHistory(id)` removes one finished game, and `clearHistory()`
+    removes them all. Both save, and do nothing (no change notification)
+    when there's nothing to remove.
   - `dismissNotice()` clears the notice.
 - **Later milestones:**
   - Wiring the store to the browser (`chooseStorage(() => localStorage)`) and
@@ -707,6 +745,13 @@ All tests run on Vitest through Vite+ (`vp test`).
       by Playwright. Tests click their labels, as players do.
   - **Atoms and molecules** that are template helpers are tested by
     rendering them straight into the page (`renderTemplate`).
+  - **UI test store:** `testStore()` uses `isoClock()`, which returns real
+    ISO times, because pages format dates. The state-layer tests keep
+    `sequentialClock()` (`t1`, `t2`, ...).
+  - **Radio "choice" handlers** listen for `click`, not `change`. Picking the
+    already-selected option is still a choice; it fires `click` (from mouse,
+    touch or keyboard) but not `change`. Example: confirming "Nobody went out"
+    stops the automatic suggestion.
   - **Coverage:** `src/ui` is held at **90%** (pure UI logic, such as the
     router and controller, is unit-tested in Node). `src/domain` and
     `src/state` stay at 100%.
@@ -813,7 +858,7 @@ Each milestone is one `scrabble-NNNN` branch and pull request (see
 | `scrabble-0004` | State: store, persistence, migrations                                                                               |
 | `scrabble-0005` | UI foundations: app shell, router, atoms, base styles; new-game and scoreboard pages (with pass and undo)           |
 | `scrabble-0006` | Turn entry: tiles, word rows, premium and blank marks, word squares, live totals, editing turns from the scoreboard |
-| `scrabble-0007` | End game and results; game history                                                                                  |
+| `scrabble-0007` | End game, results (with reopen), game history with delete                                                           |
 | `scrabble-0008` | Deployment and PWA: Pages workflow, base path, manifest, service worker, install hint, wake lock                    |
 | `scrabble-0009` | Stretch: word list build script, lookup page, inline word check                                                     |
 | `scrabble-0010` | Stretch: settings and importing your own word list                                                                  |
