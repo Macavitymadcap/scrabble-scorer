@@ -63,6 +63,11 @@ export class SsNewGameForm extends LitElement {
     fieldStyles,
     visuallyHiddenStyles,
     css`
+      /* Buttons size to their content; groups of fields fill the width. */
+      form > .button {
+        align-self: flex-start;
+      }
+
       form {
         display: flex;
         flex-direction: column;
