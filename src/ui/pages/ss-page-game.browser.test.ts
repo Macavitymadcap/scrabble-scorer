@@ -78,6 +78,17 @@ describe('ss-page-game', () => {
       await expect.element(link).toHaveClass('primary');
     });
 
+    it('offers to end the game', async () => {
+      // Arrange
+      await mount(create('ss-page-game', { store: storeWithGame() }));
+
+      // Act
+      const link = page.getByRole('link', { name: 'End game' });
+
+      // Assert
+      await expect.element(link).toHaveAttribute('href', '#/end');
+    });
+
     it('names the next player on the Pass button', async () => {
       // Arrange
       await mount(create('ss-page-game', { store: storeWithGame() }));
@@ -221,6 +232,17 @@ describe('ss-page-game', () => {
 
       // Assert
       await expect.element(summary).toBeVisible();
+    });
+
+    it('links to the results', async () => {
+      // Arrange
+      await mount(create('ss-page-game', { store: finishedStore() }));
+
+      // Act
+      const link = page.getByRole('link', { name: 'See the results' });
+
+      // Assert
+      await expect.element(link).toHaveAttribute('href', '#/results');
     });
 
     it('offers no pass or undo', async () => {

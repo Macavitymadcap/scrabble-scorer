@@ -26,7 +26,10 @@ export const pageStyles = css`
   /* Wide content still fills the page; buttons and links keep their size. */
   .stack > ss-scoreboard,
   .stack > ss-new-game-form,
-  .stack > ss-turn-form {
+  .stack > ss-turn-form,
+  .stack > ss-endgame-form,
+  .stack > ss-results,
+  .stack > .games {
     align-self: stretch;
   }
 
@@ -39,6 +42,30 @@ export const pageStyles = css`
   .lead {
     margin: 0;
     font-size: var(--font-size-3);
+  }
+
+  .games {
+    display: flex;
+    flex-direction: column;
+    gap: var(--size-3);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .games li {
+    padding: var(--size-3);
+    border: var(--border-size-1) solid var(--ss-border);
+    border-radius: var(--radius-2);
+  }
+
+  .games a {
+    color: var(--ss-accent);
+    font-weight: var(--font-weight-6);
+  }
+
+  .games p {
+    margin: var(--size-1) 0 0;
   }
 
   .alert {

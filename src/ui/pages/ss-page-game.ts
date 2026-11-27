@@ -7,7 +7,7 @@ import { visuallyHiddenStyles } from '../atoms/visually-hidden.ts';
 import '../molecules/ss-confirm-dialog.ts';
 import type { SsConfirmDialog } from '../molecules/ss-confirm-dialog.ts';
 import '../organisms/ss-scoreboard.ts';
-import { NEW_GAME, TURN } from '../router.ts';
+import { END, NEW_GAME, RESULTS, TURN } from '../router.ts';
 import { PageElement } from './page-element.ts';
 
 /** The line under the heading, by game status. */
@@ -74,8 +74,21 @@ export class SsPageGame extends PageElement {
               </button>`
             : nothing
         }
+        <a class="button" href=${END}>End game</a>
       </div>
     `;
+  }
+
+  /** The actions under the scoreboard, by game status. */
+  #actionsFor(game: Game) {
+    const byStatus: Record<Game['status'], () => unknown> = {
+      active: () => this.#renderActions(game),
+      finished: () =>
+        html`<div class="actions">
+          <a class="button primary" href=${RESULTS}>See the results</a>
+        </div>`,
+    };
+    return byStatus[game.status]();
   }
 
   override render() {
@@ -94,7 +107,7 @@ export class SsPageGame extends PageElement {
         <h1 tabindex="-1">Scoreboard</h1>
         <p class="lead">${SUMMARY[game.status](game)}</p>
         <ss-scoreboard .game=${game}></ss-scoreboard>
-        ${game.status === 'active' ? this.#renderActions(game) : nothing}
+        ${this.#actionsFor(game)}
         ${this.error ? html`<p class="alert" role="alert">${this.error}</p>` : nothing}
         <p class="visually-hidden" role="status">${this.status}</p>
         <a class="button" href=${NEW_GAME}>New game</a>

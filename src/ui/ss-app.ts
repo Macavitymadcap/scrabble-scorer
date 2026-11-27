@@ -6,6 +6,9 @@ import type { PageElement } from './pages/page-element.ts';
 import './pages/ss-page-game.ts';
 import './pages/ss-page-home.ts';
 import './pages/ss-page-new-game.ts';
+import './pages/ss-page-end.ts';
+import './pages/ss-page-history.ts';
+import './pages/ss-page-results.ts';
 import './pages/ss-page-turn.ts';
 import { resolveRoute, type ResolvedRoute, type Route } from './router.ts';
 import './templates/ss-app-shell.ts';
@@ -17,6 +20,10 @@ const PAGES: Readonly<Record<Route['tag'], PageRenderer>> = {
   'ss-page-home': (store) => html`<ss-page-home .store=${store}></ss-page-home>`,
   'ss-page-new-game': (store) => html`<ss-page-new-game .store=${store}></ss-page-new-game>`,
   'ss-page-game': (store) => html`<ss-page-game .store=${store}></ss-page-game>`,
+  'ss-page-end': (store) => html`<ss-page-end .store=${store}></ss-page-end>`,
+  'ss-page-results': (store) => html`<ss-page-results .store=${store}></ss-page-results>`,
+  'ss-page-history': (store, gameId) =>
+    html`<ss-page-history .store=${store} .gameId=${gameId}></ss-page-history>`,
   'ss-page-turn': (store, turnId) =>
     html`<ss-page-turn .store=${store} .turnId=${turnId}></ss-page-turn>`,
 };

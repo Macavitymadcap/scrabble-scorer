@@ -5,13 +5,11 @@ import '../molecules/ss-confirm-dialog.ts';
 import type { SsConfirmDialog } from '../molecules/ss-confirm-dialog.ts';
 import '../organisms/ss-new-game-form.ts';
 import type { StartGameEvent } from '../organisms/ss-new-game-form.ts';
+import { joinNames } from '../format.ts';
 import { GAME, navigate } from '../router.ts';
 import { PageElement } from './page-element.ts';
 
-const playerList = (game: Game): string => {
-  const names = game.players.map((p) => p.name);
-  return names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names.join('');
-};
+const playerList = (game: Game): string => joinNames(game.players.map((p) => p.name));
 
 /** New game: choose players, then start. Confirms before replacing an active game. */
 @customElement('ss-page-new-game')

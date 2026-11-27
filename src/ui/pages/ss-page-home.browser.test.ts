@@ -93,15 +93,15 @@ describe('ss-page-home', () => {
   });
 
   describe('with a finished game', () => {
-    it('offers to see the scores', async () => {
+    it('offers to see the results', async () => {
       // Arrange
       await mount(create('ss-page-home', { store: finishGame() }));
 
       // Act
-      const link = page.getByRole('link', { name: 'See the scores' });
+      const link = page.getByRole('link', { name: 'See the results' });
 
       // Assert
-      await expect.element(link).toHaveAttribute('href', '#/game');
+      await expect.element(link).toHaveAttribute('href', '#/results');
     });
 
     it('offers a new game as a main action', async () => {
@@ -155,6 +155,19 @@ describe('ss-page-home', () => {
       // Assert
       await expect.element(saved).toBeVisible();
     });
+  });
+
+  it('links the saved games count to the history', async () => {
+    // Arrange
+    const store = finishGame();
+    store.startGame(['Cat', 'Dan']);
+    await mount(create('ss-page-home', { store }));
+
+    // Act
+    const link = page.getByRole('link', { name: '1 finished game saved.' });
+
+    // Assert
+    await expect.element(link).toHaveAttribute('href', '#/history');
   });
 
   it('updates when the store changes', async () => {
