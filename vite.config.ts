@@ -1,9 +1,45 @@
+import { VitePWA } from 'vite-plugin-pwa';
 import { defineConfig } from 'vite-plus';
 import { playwright } from 'vite-plus/test/browser-playwright';
 
 export default defineConfig({
   // Served from https://<user>.github.io/scrabble-scorer/
   base: '/scrabble-scorer/',
+
+  plugins: [
+    VitePWA({
+      // New versions wait until the player chooses to reload (see main.ts).
+      registerType: 'prompt',
+      injectRegister: false,
+      // Icons are generated once with `npm run generate:icons` and committed.
+      includeAssets: ['favicon.ico', 'icon.svg', 'apple-touch-icon-180x180.png'],
+      manifest: {
+        id: '/scrabble-scorer/',
+        name: 'Scrabble Scorer',
+        short_name: 'Scorer',
+        description: 'Keep score for a game of Scrabble on a real board.',
+        lang: 'en-GB',
+        display: 'standalone',
+        orientation: 'portrait',
+        theme_color: '#087f5b',
+        background_color: '#f8f9fa',
+        icons: [
+          { src: 'pwa-64x64.png', sizes: '64x64', type: 'image/png' },
+          { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },
+          { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png' },
+          {
+            src: 'maskable-icon-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable',
+          },
+        ],
+      },
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest}'],
+      },
+    }),
+  ],
 
   test: {
     projects: [

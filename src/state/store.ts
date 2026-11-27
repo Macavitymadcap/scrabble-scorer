@@ -1,11 +1,13 @@
 import { createGame, reduce, type GameAction } from '../domain/game.ts';
 import { GameError, type EndGame, type Game, type TurnInput } from '../domain/types.ts';
 import type { MigrateOptions } from './migrations.ts';
+import { loadSettings, saveSettings, type Settings } from './settings.ts';
 import {
   addToHistory,
   clearCurrentGame,
   loadCurrentGame,
   loadHistory,
+  MESSAGES,
   saveCurrentGame,
   saveHistory,
   type KeyValueStorage,
@@ -18,6 +20,8 @@ export interface StoreState {
   history: Game[];
   /** A message for the player about loading or saving, until dismissed. */
   notice: string | null;
+  /** Device preferences. */
+  settings: Settings;
 }
 
 /** The result of a store action. Rule-breaking input is reported, not thrown. */
@@ -80,6 +84,7 @@ export class GameStore {
       game: loadedGame.value,
       history: loadedHistory.value,
       notice: loadedGame.problem ?? loadedHistory.problem ?? null,
+      settings: loadSettings(storage),
     };
   }
 
@@ -141,6 +146,13 @@ export class GameStore {
     if (this.#state.history.length > 0) {
       this.#commit(this.#state.game, []);
     }
+  };
+
+  /** Turns keeping the screen on during games on or off, and saves it. */
+  setKeepScreenOn = (keepScreenOn: boolean): void => {
+    const settings = { ...this.#state.settings, keepScreenOn };
+    const saved = saveSettings(this.#storage, settings);
+    this.#setState({ settings, notice: saved ? this.#state.notice : MESSAGES.saveFailed });
   };
 
   dismissNotice = (): void => {
