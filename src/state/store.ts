@@ -128,6 +128,21 @@ export class GameStore {
     this.#commit(null);
   };
 
+  /** Removes one finished game from history. Unknown ids are ignored. */
+  deleteFromHistory = (gameId: string): void => {
+    const history = this.#state.history.filter((game) => game.id !== gameId);
+    if (history.length !== this.#state.history.length) {
+      this.#commit(this.#state.game, history);
+    }
+  };
+
+  /** Removes every finished game from history. */
+  clearHistory = (): void => {
+    if (this.#state.history.length > 0) {
+      this.#commit(this.#state.game, []);
+    }
+  };
+
   dismissNotice = (): void => {
     this.#setState({ notice: null });
   };
