@@ -6,16 +6,19 @@ import type { PageElement } from './pages/page-element.ts';
 import './pages/ss-page-game.ts';
 import './pages/ss-page-home.ts';
 import './pages/ss-page-new-game.ts';
-import { resolveRoute, type Route } from './router.ts';
+import './pages/ss-page-turn.ts';
+import { resolveRoute, type ResolvedRoute, type Route } from './router.ts';
 import './templates/ss-app-shell.ts';
 
-type PageRenderer = (store: GameStore | undefined) => TemplateResult;
+type PageRenderer = (store: GameStore | undefined, param: string | undefined) => TemplateResult;
 
 /** How to render each page. */
 const PAGES: Readonly<Record<Route['tag'], PageRenderer>> = {
   'ss-page-home': (store) => html`<ss-page-home .store=${store}></ss-page-home>`,
   'ss-page-new-game': (store) => html`<ss-page-new-game .store=${store}></ss-page-new-game>`,
   'ss-page-game': (store) => html`<ss-page-game .store=${store}></ss-page-game>`,
+  'ss-page-turn': (store, turnId) =>
+    html`<ss-page-turn .store=${store} .turnId=${turnId}></ss-page-turn>`,
 };
 
 /**
@@ -29,7 +32,7 @@ export class SsApp extends LitElement {
   /** False when games can't be saved in this browser. */
   @property({ type: Boolean }) persistent = true;
 
-  @state() route: Route = resolveRoute(window.location.hash);
+  @state() route: ResolvedRoute = resolveRoute(window.location.hash);
 
   readonly #storeController = new StoreController(this, () => this.store);
 
@@ -76,7 +79,7 @@ export class SsApp extends LitElement {
         .persistent=${this.persistent}
         @dismiss-notice=${this.#onDismissNotice}
       >
-        ${PAGES[this.route.tag](this.store)}
+        ${PAGES[this.route.tag](this.store, this.route.param)}
       </ss-app-shell>
     `;
   }

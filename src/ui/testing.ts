@@ -1,4 +1,4 @@
-import type { LitElement } from 'lit';
+import { render, type LitElement, type TemplateResult } from 'lit';
 import { GameStore } from '../state/store.ts';
 import { createMemoryStorage } from '../state/storage.ts';
 import { sequentialClock, sequentialIds } from '../state/testing.ts';
@@ -25,4 +25,12 @@ export const storeWithGame = (names: readonly string[] = ['Ann', 'Bob']): GameSt
   const store = testStore();
   store.startGame(names);
   return store;
+};
+
+/** Renders a template (e.g. an atom or molecule) into a new container on the page. */
+export const renderTemplate = (template: TemplateResult): HTMLElement => {
+  const container = document.createElement('div');
+  document.body.append(container);
+  render(template, container);
+  return container;
 };

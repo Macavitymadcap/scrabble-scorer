@@ -7,7 +7,7 @@ import { visuallyHiddenStyles } from '../atoms/visually-hidden.ts';
 import '../molecules/ss-confirm-dialog.ts';
 import type { SsConfirmDialog } from '../molecules/ss-confirm-dialog.ts';
 import '../organisms/ss-scoreboard.ts';
-import { NEW_GAME } from '../router.ts';
+import { NEW_GAME, TURN } from '../router.ts';
 import { PageElement } from './page-element.ts';
 
 /** The line under the heading, by game status. */
@@ -63,7 +63,8 @@ export class SsPageGame extends PageElement {
   #renderActions(game: Game) {
     return html`
       <div class="actions">
-        <button type="button" class="button primary" @click=${this.#onPass}>
+        <a class="button primary" href=${TURN}>Enter turn (${nextPlayer(game).name})</a>
+        <button type="button" class="button" @click=${this.#onPass}>
           Pass (${nextPlayer(game).name})
         </button>
         ${

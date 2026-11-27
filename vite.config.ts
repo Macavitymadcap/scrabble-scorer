@@ -26,6 +26,7 @@ export default defineConfig({
             'lit',
             'lit/decorators.js',
             'lit/directives/repeat.js',
+            'lit/directives/keyed.js',
           ],
         },
         test: {

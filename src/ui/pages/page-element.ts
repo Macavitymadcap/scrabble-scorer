@@ -25,7 +25,8 @@ export const pageStyles = css`
 
   /* Wide content still fills the page; buttons and links keep their size. */
   .stack > ss-scoreboard,
-  .stack > ss-new-game-form {
+  .stack > ss-new-game-form,
+  .stack > ss-turn-form {
     align-self: stretch;
   }
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vite-plus/test';
 import { page, userEvent } from 'vite-plus/test/browser/context';
 import { KEYS, createMemoryStorage } from '../state/storage.ts';
 import { GameStore } from '../state/store.ts';
-import { APP_NAME, GAME, NEW_GAME } from './router.ts';
+import { APP_NAME, GAME, NEW_GAME, turnPath } from './router.ts';
 import './ss-app.ts';
 import type { SsApp } from './ss-app.ts';
 import { create, mount, testStore } from './testing.ts';
@@ -65,6 +65,17 @@ describe('ss-app', () => {
 
     // Assert
     await expect.poll(() => currentPage(app)?.tagName).toBe('SS-PAGE-GAME');
+  });
+
+  it('passes the turn id from the hash to the turn page', async () => {
+    // Arrange
+    const app = await mount(create('ss-app', { store: testStore() }));
+
+    // Act
+    await goTo(app, turnPath('t7'));
+
+    // Assert
+    expect((currentPage(app) as { turnId?: string } | null)?.turnId).toBe('t7');
   });
 
   it('shows the home page for an unknown hash', async () => {

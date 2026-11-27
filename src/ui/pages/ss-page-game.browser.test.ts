@@ -66,6 +66,18 @@ describe('ss-page-game', () => {
       await expect.element(table).toBeVisible();
     });
 
+    it("offers to enter the next player's turn as the main action", async () => {
+      // Arrange
+      await mount(create('ss-page-game', { store: storeWithGame() }));
+
+      // Act
+      const link = page.getByRole('link', { name: 'Enter turn (Ann)' });
+
+      // Assert
+      await expect.element(link).toHaveAttribute('href', '#/turn');
+      await expect.element(link).toHaveClass('primary');
+    });
+
     it('names the next player on the Pass button', async () => {
       // Arrange
       await mount(create('ss-page-game', { store: storeWithGame() }));

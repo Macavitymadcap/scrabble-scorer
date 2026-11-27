@@ -91,30 +91,58 @@ the players end it by hand (for example after six scoreless turns in a row).
 
 ## Turn input UX
 
-Turn entry is built for speed at the table, ideally on a phone.
+Turn entry is built for speed at the table, ideally on a phone. It's the
+`#/turn` page, reached from **"Enter turn (Ann)"** on the scoreboard.
 
-1. The screen shows the **current player** and the round number.
-2. The player **types the main word**, A-Z only. Typing changes it to upper
-   case and shows one tile per letter.
-3. **Tapping a tile** cycles it through: normal -> DL -> TL -> normal. A separate
-   **long-press or "blank" toggle** marks the tile as a blank. Each state looks
-   distinct, colour-coded to match the board.
-4. **Word multiplier** buttons toggle DW and TW, with a count (for example
-   DW x2) for words that span two premium squares.
-5. **"Add word"** adds another word row for each cross-word. Each row shows its
-   own subtotal.
-6. A **bingo toggle** adds the 50-point bonus. The player sets it by hand
-   because the app can't work out how many tiles were placed. Typed words
-   include tiles already on the board (extending `PLAY` to `PLAYING` is 7
-   letters but only 3 new tiles), and cross-words reuse the new tiles. Asking
-   players to mark every existing tile would allow automatic detection, but
-   would add taps to most turns to save one tap on the rare bingo.
-7. A **live preview** shows each word's score and the turn total as the player
-   edits.
-8. **Confirm** saves the turn and moves to the next player. **Pass / exchange**
-   records a 0-point turn in one tap.
-9. **Undo last turn** and **edit any previous turn** recalculate all totals.
-   Scores are always worked out from the stored turns, never stored as totals.
+1. The heading names the **current player** ("Ann's turn") and the round.
+2. **Turn type** radios: Played a word / Passed / Exchanged tiles / Word
+   withdrawn after a challenge. Anything except a play saves as a 0-point
+   turn, and the word fields are hidden (but kept, in case of a mis-tap).
+3. The player **types the main word** into a letters field. Anything that
+   isn't A-Z is dropped, letters are shown in capitals, and the limit is 15.
+   One tile appears per letter.
+4. **Tapping a tile** cycles it through **normal -> DL -> TL -> blank ->
+   normal**.
+   - A blank always scores 0, so its letter premium never matters. That makes
+     "blank" a single extra step rather than a separate long-press, which
+     keyboard and screen reader users couldn't reach.
+   - The mark is shown as text ("DL", "TL", "Blank") as well as colour.
+   - The tile's name says it, e.g. "Q, 10 points, triple letter", and each
+     tap is announced ("Q: triple letter.").
+   - Tiles stay cream with dark letters in both light and dark mode, like the
+     physical tiles.
+5. **Editing the letters keeps marks** on positions whose letter didn't
+   change (`retile`), so fixing a typo doesn't clear earlier premiums.
+6. **Word squares** are two radio groups per word: "Double word squares" and
+   "Triple word squares", each None / 1 / 2 / 3. Counts that would take the
+   word over 3 word squares in total are disabled.
+7. **"Add cross-word"** adds another word row, up to 8 words in total.
+   Cross-words can be removed; the main word can't. Each row shows its own
+   score.
+8. A **Bingo** checkbox adds the 50-point bonus, and a bingo needs a word of
+   at least 7 letters. The player sets it by hand because the app can't work
+   out how many tiles were placed:
+   - Typed words include tiles already on the board: extending `PLAY` to
+     `PLAYING` is 7 letters but only 3 new tiles.
+   - Cross-words reuse the new tiles.
+
+   Asking players to mark every existing tile would allow automatic
+   detection, but would add taps to most turns to save one tap on the rare
+   bingo.
+
+9. The **turn total** updates as the player edits. It isn't announced on every
+   keystroke.
+10. **Save turn** checks each word (entered, at least 2 letters) and the bingo
+    rule, moving focus to the first problem. It then records the turn and
+    returns to the scoreboard. Enter in a letters field saves too. **Cancel**
+    goes back without saving.
+11. **Pass** is also a one-tap button on the scoreboard. **Undo last turn**
+    asks for confirmation.
+12. **Editing:** each score on the scoreboard links to editing that turn
+    (`#/turn/<id>`), labelled e.g. "5: edit Ann's round 1 turn". The form
+    opens with the turn as it was. Totals are recalculated, because scores are
+    always worked out from the stored turns. A finished game's scores aren't
+    links.
 
 When the word lookup is available, each word row shows a small indicator
 (valid, unknown or not yet checked). It is **advisory only** and never blocks
@@ -205,8 +233,17 @@ flowchart TD
   web-components guidance, buttons and fields are **native elements styled
   by shared atom styles** (`buttonStyles`, `fieldStyles`,
   `visuallyHiddenStyles`), not wrapper components. A custom element is used
-  only for encapsulated behaviour. For example, the new-game form is one
-  organism that owns its `<form>` and inputs.
+  only for encapsulated behaviour. For example, the new-game form and turn
+  form are each one organism that owns its `<form>` and inputs. The tile atom
+  and word-row molecule are **template helpers** (render functions plus
+  styles) used inside the turn form. As separate elements, their own shadow
+  roots would cut their inputs and radios off from the form, breaking
+  Enter-to-submit and radio grouping.
+- **Accessible names of interactive elements** that need more than their
+  visible text (score links, tiles) are set with `aria-label`, starting with
+  the visible text so voice control users can say what they see. Hidden extra
+  text inside a link or button doesn't work: the browser adds a space before
+  the positioned, visually hidden text, so "5, edit" reads as "5 , edit".
 - Decorators use **TypeScript's legacy (experimental) syntax**
   (`@property() name = ''`), with `experimentalDecorators: true` and
   `useDefineForClassFields: false`, which Lit requires for legacy decorators.
@@ -217,22 +254,30 @@ flowchart TD
 
 Atomic Design layout. Built so far in **bold**; the rest are planned:
 
-| Level     | Examples                                                                                                                                                         |
-| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Atoms     | **`buttonStyles`, `fieldStyles`, `visuallyHiddenStyles`** (shared styles for native elements); `ss-tile` (0006, interactive)                                     |
-| Molecules | **`ss-confirm-dialog`**; `ss-word-row` (tiles + multipliers + subtotal)                                                                                          |
-| Organisms | **`ss-new-game-form`, `ss-scoreboard`**; `ss-turn-form`, `ss-endgame-form`, `ss-word-check`                                                                      |
-| Templates | **`ss-app-shell`** (header with app name, notices, main)                                                                                                         |
-| Pages     | **`ss-page-home`, `ss-page-new-game`, `ss-page-game`** (scoreboard); `ss-page-turn`, `ss-page-end-game`, `ss-page-results`, `ss-page-lookup`, `ss-page-settings` |
-| Root      | **`ss-app`**: follows the hash, renders the page in the shell, passes it the store                                                                               |
+| Level     | Examples                                                                                                                                                             |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Atoms     | **`buttonStyles`, `fieldStyles`, `visuallyHiddenStyles`** (shared styles for native elements); **tile** (`renderTile` + `tileStyles`)                                |
+| Molecules | **`ss-confirm-dialog`**; **word row** (`renderWordRow` + `wordRowStyles`: letters, tiles, word squares, score)                                                       |
+| Organisms | **`ss-new-game-form`, `ss-scoreboard`, `ss-turn-form`**; `ss-endgame-form`, `ss-word-check`                                                                          |
+| Templates | **`ss-app-shell`** (header with app name, notices, main)                                                                                                             |
+| Pages     | **`ss-page-home`, `ss-page-new-game`, `ss-page-game`** (scoreboard), **`ss-page-turn`**; `ss-page-end-game`, `ss-page-results`, `ss-page-lookup`, `ss-page-settings` |
+| Root      | **`ss-app`**: follows the hash, renders the page in the shell, passes it the store                                                                                   |
 
 ### Routing
 
-- **Routes:** `src/ui/router.ts` holds `ROUTES`, a `Map` from hash to page
-  (`#/` home, `#/new` new game, `#/game` scoreboard) and its document title.
-  It's a `Map` so lookups never match inherited keys like `toString`. Unknown
-  hashes show the home page. Hash routes need no server-side fallback, which
-  suits GitHub Pages.
+- **Routes:** `src/ui/router.ts` holds `ROUTES`, a `Map` from base hash to
+  page and its document title:
+  - `#/` home, `#/new` new game, `#/game` scoreboard
+  - `#/turn` records a turn, and `#/turn/<id>` edits one
+
+  It's a `Map` so lookups never match inherited keys like `toString`.
+
+- **Matching:** the first path segment picks the page, and the rest is
+  passed to it as a parameter (`route.param`, decoded). A malformed escape is
+  kept as typed, so the page reports "turn not found" rather than quietly
+  becoming a new turn. `turnPath(id?)` builds the hash. Unknown hashes show
+  the home page. Hash routes need no server-side fallback, which suits GitHub
+  Pages.
 - **The root element:** `ss-app` listens for `hashchange` and renders the page
   for the current route, using a lookup map of render functions.
   - It updates `document.title` on each route change.
@@ -267,14 +312,15 @@ Atomic Design layout. Built so far in **bold**; the rest are planned:
 src/
   domain/      tiles.ts, scoring.ts, endgame.ts, validation.ts,
                game.ts (create, reducer, selectors), types.ts,
+               word-entry.ts (tile marks, retile, word-square limits),
                testing.ts (test helpers)
   state/       store.ts, storage.ts, migrations.ts, schema.ts (validation
                on load), testing.ts (test fixtures)
   words/       lexicon.ts (load + lookup), import.ts (user list, IndexedDB)
   ui/
-    atoms/       button-styles.ts, field-styles.ts, visually-hidden.ts
-    molecules/   ss-confirm-dialog.ts
-    organisms/   ss-new-game-form.ts, ss-scoreboard.ts
+    atoms/       button-styles.ts, field-styles.ts, visually-hidden.ts, tile.ts
+    molecules/   ss-confirm-dialog.ts, word-row.ts
+    organisms/   ss-new-game-form.ts, ss-scoreboard.ts, ss-turn-form.ts
     templates/   ss-app-shell.ts
     pages/       page-element.ts (base class), ss-page-*.ts
     controllers/ store-controller.ts
@@ -657,6 +703,10 @@ All tests run on Vitest through Vite+ (`vp test`).
       `document.activeElement`, so `toHaveFocus()` can't be used.
     - Slotted content isn't part of its slot's text.
     - `toHaveTextContent('...')` with a string matches the whole text.
+    - Visually hidden inputs (the styled word-square radios) can't be clicked
+      by Playwright. Tests click their labels, as players do.
+  - **Atoms and molecules** that are template helpers are tested by
+    rendering them straight into the page (`renderTemplate`).
   - **Coverage:** `src/ui` is held at **90%** (pure UI logic, such as the
     router and controller, is unit-tested in Node). `src/domain` and
     `src/state` stay at 100%.
@@ -755,18 +805,18 @@ file.
 Each milestone is one `scrabble-NNNN` branch and pull request (see
 [Development workflow](#development-workflow)).
 
-| Branch          | Milestone                                                                                                      |
-| --------------- | -------------------------------------------------------------------------------------------------------------- |
-| `scrabble-0001` | Design document (this file)                                                                                    |
-| `scrabble-0002` | Project scaffold: Vite+, TypeScript, Lit, Open Props, lint/format/test config, PR CI                           |
-| `scrabble-0003` | Domain: tiles, turn scoring, end game, reducer, with full unit tests                                           |
-| `scrabble-0004` | State: store, persistence, migrations                                                                          |
-| `scrabble-0005` | UI foundations: app shell, router, atoms, base styles; new-game and scoreboard pages (with pass and undo)      |
-| `scrabble-0006` | Turn entry: `ss-tile`, word rows, premium toggles, live preview, editing turns; "Enter turn" on the scoreboard |
-| `scrabble-0007` | End game and results; game history                                                                             |
-| `scrabble-0008` | Deployment and PWA: Pages workflow, base path, manifest, service worker, install hint, wake lock               |
-| `scrabble-0009` | Stretch: word list build script, lookup page, inline word check                                                |
-| `scrabble-0010` | Stretch: settings and importing your own word list                                                             |
+| Branch          | Milestone                                                                                                           |
+| --------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `scrabble-0001` | Design document (this file)                                                                                         |
+| `scrabble-0002` | Project scaffold: Vite+, TypeScript, Lit, Open Props, lint/format/test config, PR CI                                |
+| `scrabble-0003` | Domain: tiles, turn scoring, end game, reducer, with full unit tests                                                |
+| `scrabble-0004` | State: store, persistence, migrations                                                                               |
+| `scrabble-0005` | UI foundations: app shell, router, atoms, base styles; new-game and scoreboard pages (with pass and undo)           |
+| `scrabble-0006` | Turn entry: tiles, word rows, premium and blank marks, word squares, live totals, editing turns from the scoreboard |
+| `scrabble-0007` | End game and results; game history                                                                                  |
+| `scrabble-0008` | Deployment and PWA: Pages workflow, base path, manifest, service worker, install hint, wake lock                    |
+| `scrabble-0009` | Stretch: word list build script, lookup page, inline word check                                                     |
+| `scrabble-0010` | Stretch: settings and importing your own word list                                                                  |
 
 The core game is usable after `scrabble-0007` and published after
 `scrabble-0008`.
