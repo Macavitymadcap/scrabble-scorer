@@ -160,6 +160,7 @@ flowchart LR
   EditTurn --> Scoreboard
   Scoreboard --> Lookup["Word lookup (stretch)"]
   Home --> Settings
+  Home --> Help
   Scoreboard --> EndGame[End game]
   EndGame --> Results[Final results]
   Results -->|play again| NewGame
@@ -168,8 +169,27 @@ flowchart LR
   History --> PastGame[Past game results]
 ```
 
-- **Home**: start a new game, or resume the game in progress if there is one.
-  Starting a new game while one is in progress asks for confirmation first.
+- **Header, on every page:** the app name links home, and a "Main"
+  navigation has **Help** and **Settings**. The current page's link is marked
+  with `aria-current="page"`.
+- **Home**:
+  - Start a new game, or resume the game in progress if there is one.
+    Starting a new game while one is in progress asks for confirmation first.
+  - **Install app**, shown only when the browser can install (see
+    [Installability](#installability)).
+  - **How it works**: three steps (start a game, enter each turn, end the
+    game) and a link to the full help.
+- **Help** (`#/help`): a `<details>` accordion of topics in the order a game
+  goes:
+  - what the app does, starting a game, entering a turn
+  - marking premium squares and blanks
+  - cross-words and bingos; passing, exchanging and challenges
+  - fixing mistakes; ending the game
+  - where games are saved; offline use and installing
+
+  Several topics can be open at once, and there are no headings inside the
+  `<summary>` elements, which some screen readers drop.
+
 - **New game**: enter 2-4 player names, reorder them to set the turn order,
   then start.
 - **Scoreboard**: the main screen. It shows a table of rounds (rows) by players
@@ -207,9 +227,9 @@ flowchart LR
   - **Deleting:** **Delete all saved games** is on the list. Both deletes ask
     for confirmation first.
   - **From home:** the saved-games count on the home page links here.
-- **Settings**: keep the screen awake during games (on by default). For the
-  stretch goal it also offers choosing the word list (built-in or imported),
-  importing or removing a list, and downloading it for offline use.
+- **Settings** (`#/settings`): "Keep the screen on during games" (on by
+  default), saved on the device. The word-list options (choosing, importing
+  and downloading) will join it with the stretch goal.
 
 ## Architecture
 
@@ -303,6 +323,7 @@ levels.
   - `#/turn` records a turn, and `#/turn/<id>` edits one
   - `#/end` end game, `#/results` the current game's results
   - `#/history` the list, and `#/history/<id>` a past game (`historyPath`)
+  - `#/help`, `#/settings`
 
   It's a `Map` so lookups never match inherited keys like `toString`.
 
@@ -361,12 +382,14 @@ src/
     testing.ts (test helpers)
   state/             store and persistence
     store.ts, storage.ts, migrations.ts, schema.ts (validation on load),
-    testing.ts (test fixtures)
+    settings.ts (device preferences), testing.ts (test fixtures)
   words/             (stretch) lexicon.ts (load + lookup), import.ts (IndexedDB)
   ui/                UI infrastructure, flat
     ss-app.ts        root element: routing, store, document title, focus
     router.ts        routes, route parameters, navigation
     store-controller.ts  Lit controller connecting pages to the store
+    screen-wake-lock.ts  keeps the screen on (Screen Wake Lock API)
+    install-prompt.ts    offers to install (Web Install API / beforeinstallprompt)
     base-styles.ts   shared Lit css for every shadow root
     global.css       Open Props imports, colour tokens, page base
     format.ts        signed numbers, dates, name lists
@@ -562,7 +585,12 @@ when passed as callbacks (`@click=${store.undoTurn}`). Private helpers
   - Wiring the store to the browser (`chooseStorage(() => localStorage)`) and
     the Lit `StoreController` were done in `scrabble-0005` (see
     [Routing](#routing)).
-  - `navigator.storage.persist()` belongs to `scrabble-0008`.
+  - `navigator.storage.persist()` was done in `scrabble-0008` (see
+    [Data durability](#data-durability)).
+- **Settings:** `state.settings` holds device preferences (see
+  `settings.ts`), saved under their own key, `scrabble-scorer:settings`.
+  `setKeepScreenOn(on)` saves the change. Unreadable or missing settings fall
+  back to the defaults without a notice, because they're cheap to lose.
 
 ## Word lookup (stretch goal)
 
@@ -666,8 +694,9 @@ Keep it as simple as possible: HTML, CSS and TypeScript, with no UI framework.
 - **Diagrams:** Mermaid code blocks in Markdown.
 - **npm scripts:** `dev`, `build`, `preview`, `check` (format check, lint and
   types), `fix`, `lint`, `format`, `test` (single run), `test:watch`
-  (`vp test watch`; plain `vp test` doesn't watch), `test:coverage`, and
-  later `build:wordlist`.
+  (`vp test watch`; plain `vp test` doesn't watch), `test:coverage`,
+  `generate:icons` (see [Installability](#installability)), and later
+  `build:wordlist`.
 - **Dev dependencies:**
   - `vite-plus`.
   - `@vitest/coverage-v8` and `@vitest/browser-playwright`, pinned to the
@@ -676,6 +705,8 @@ Keep it as simple as possible: HTML, CSS and TypeScript, with no UI framework.
     one Chromium build, and pinning lets local runs reuse the Chromium already
     in `~/.cache/ms-playwright` rather than downloading. Upgrading Playwright
     means a new download, locally and in CI.
+  - `vite-plugin-pwa`, `workbox-window` and `@vite-pwa/assets-generator`,
+    pinned exactly.
 
 ## Development workflow
 
@@ -794,10 +825,19 @@ browser. It is a static site hosted on **GitHub Pages**. Cloudflare Pages
 remains an option if ever needed, but neither the word lookup nor anything
 else requires it.
 
-- **Workflow:** a GitHub Actions workflow runs on every push to `main`. It
-  runs `npm ci`, then the same checks as PR CI, then the build. It uploads
-  `dist/` with `actions/upload-pages-artifact` and publishes it with
-  `actions/deploy-pages`. Pages is set to use "GitHub Actions" as its source.
+- **Workflow:** `.github/workflows/ci.yml` has two jobs:
+  - **Check, test and build** runs on every PR and every push to `main`. On
+    `main` it also uploads the `dist/` it just built and tested, with
+    `actions/upload-pages-artifact`.
+  - **Deploy to GitHub Pages** runs only on pushes to `main`, after the check
+    job passes. It publishes that same artifact with `actions/deploy-pages`
+    to the `github-pages` environment, so what's deployed is exactly what was
+    tested.
+  - **Concurrency:** superseded PR runs are cancelled, but a deploy under way
+    on `main` never is.
+- **Site:** https://macavitymadcap.github.io/scrabble-scorer/. Pages is set
+  to "GitHub Actions" as its source, with HTTPS enforced (switched on with
+  `gh api -X POST repos/<owner>/<repo>/pages -f build_type=workflow`).
 - **Base path:** the site is served from `/<repo-name>/`, so Vite's `base` is
   set to match. Asset URLs, including the word list, use
   `import.meta.env.BASE_URL` or Vite's `?url` imports, never absolute paths.
@@ -815,18 +855,37 @@ file.
 
 ### Installability
 
-- **Manifest** (`manifest.webmanifest`): `name`, `short_name`,
-  `display: standalone`, `orientation: portrait`, `theme_color` and
-  `background_color` taken from the Open Props palette, and icons at 192 px
-  and 512 px plus a maskable 512 px icon. `start_url` and `scope` are set to
-  the Pages base path (`/<repo-name>/`), not `/`.
-- **Android and desktop Chromium:** the browser offers its own install prompt.
-  The app catches `beforeinstallprompt` and shows an "Install app" button on
-  the home screen rather than relying on the browser's banner.
-- **iOS / iPadOS Safari:** there is no install prompt. The home screen shows a
-  one-off hint ("Share -> Add to Home Screen") when the app is running in
-  Safari and not yet installed (`navigator.standalone === false`). The
-  `apple-touch-icon` and `apple-mobile-web-app-*` meta tags are included.
+- **Manifest** (generated by `vite-plugin-pwa` in `vite.config.ts`):
+  - Name "Scrabble Scorer", short name "Scorer", a stable
+    `id: /scrabble-scorer/` and `lang: en-GB`.
+  - `display: standalone`, `orientation: portrait`, theme colour `#087f5b`
+    and background `#f8f9fa`.
+  - `start_url` and `scope` come from the `/scrabble-scorer/` base, not `/`.
+- **Icons:**
+  - The source is `public/icon.svg`, a cream tile showing "S" and a 1.
+  - `npm run generate:icons` (`@vite-pwa/assets-generator`,
+    `pwa-assets.config.ts`) makes `favicon.ico`, 64, 192 and 512 px PNGs, a
+    maskable 512 px icon and a 180 px Apple touch icon, all on a cream
+    background.
+  - The PNGs are generated once and committed, not built in CI: the SVG
+    letters use system fonts, so they'd render differently on different
+    machines.
+  - `index.html` links the favicons and Apple touch icon, and has
+    `theme-color` for light and dark.
+- **Install button:** `InstallPrompt` (`src/ui/install-prompt.ts`), created
+  at start-up because the browser's event can fire before any page shows.
+  - It prefers `navigator.install()` (Web Install API), and otherwise uses a
+    captured `beforeinstallprompt`, whose own banner it suppresses.
+  - The home page shows **Install app** only when one of those is available,
+    and says whether it was installed, cancelled or failed.
+  - The install is started straight from the click, so the browser treats it
+    as the player's own action. A `beforeinstallprompt` event can only be
+    used once.
+- **No iOS-specific prompt.** The plan had a "Share -> Add to Home Screen"
+  hint for Safari. The web guidance advises against browser-specific
+  step-by-step instructions instead of a working button, so installing is
+  explained in the help instead. Browsers that can't install through the
+  page still have their own menus.
 
 ### Service worker and caching
 
@@ -835,9 +894,11 @@ file.
 - **Word list:** cache-first at runtime. It is cached the first time a lookup
   happens. The settings screen offers "Download word list for offline use" so
   players can fetch it before going offline.
-- **Updates:** a new service worker waits rather than taking over straight
-  away. The app shows "New version available - reload" and only activates it
-  when the player taps, so a game is never reloaded mid-turn.
+- **Updates:** `registerType: 'prompt'`, registered in `main.ts` with
+  `virtual:pwa-register`. A new version waits; the shell shows "A new
+  version of the app is ready." with a **Reload** button. Only that button
+  switches over (`updateServiceWorker(true)`), so a game is never reloaded
+  mid-turn.
 - **Tooling:** `vite-plugin-pwa` 2 (Workbox) generates the manifest and
   service worker. A throwaway test during `scrabble-0002` confirmed it works
   with Vite+ 1.8. It builds `manifest.webmanifest` and `sw.js` with `start_url`
@@ -850,22 +911,31 @@ file.
 
 ### Data durability
 
-- The app calls `navigator.storage.persist()` when the first game starts. This
-  asks the browser not to clear the app's storage (`localStorage` and the
-  IndexedDB word list) when the device is low on space.
-- Safari may delete script-written storage for sites that haven't been used
-  for 7 days, but not for installed home-screen apps. The iOS install hint
-  mentions this ("install to keep your games safe").
+- **Asking to keep data:** `ss-app` calls `navigator.storage.persist()` once,
+  the first time there's a game. This asks the browser not to clear the app's
+  storage (`localStorage`, and later the IndexedDB word list) when the device
+  is low on space. A refusal is ignored.
+- **Safari:** it may delete script-written storage for sites that haven't
+  been used for 7 days, but not for installed home-screen apps. The help
+  topic on saving says clearing site data deletes games.
 - Losing data costs little (an unfinished game), but this is why export and
   import of game history is listed under [Future ideas](#future-ideas).
 
 ### At the table
 
-- **Screen Wake Lock:** while a game is in progress, the app requests a
-  screen wake lock (`navigator.wakeLock.request('screen')`) so the phone
-  doesn't sleep between turns. It requests the lock again when the app comes
-  back into view, and skips this quietly where the API isn't supported.
-  Players can turn this off in settings.
+- **Screen Wake Lock** (`ScreenWakeLock`, `src/ui/screen-wake-lock.ts`):
+  - `ss-app` asks for the lock while a game is active and
+    `settings.keepScreenOn` is on, so the phone doesn't sleep between turns.
+    It lets go when the game finishes, the setting is turned off, or the app
+    is removed.
+  - The browser releases the lock whenever the page is hidden, so it's
+    requested again when the page becomes visible.
+  - A missing API or a refused request (e.g. low battery) is ignored, and
+    the screen sleeps as normal.
+  - The browser API and `document` are passed in, for Node tests. An
+    explicit `api: undefined` means "unsupported", so the constructor checks
+    whether the option was given rather than using a default parameter,
+    which would replace `undefined` too. `InstallPrompt` does the same.
 - Layout is portrait-first with large touch targets, at least 44 px, and
   respects safe-area insets (`env(safe-area-inset-*)`) in standalone mode.
 
@@ -874,18 +944,18 @@ file.
 Each milestone is one `scrabble-NNNN` branch and pull request (see
 [Development workflow](#development-workflow)).
 
-| Branch          | Milestone                                                                                                           |
-| --------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `scrabble-0001` | Design document (this file)                                                                                         |
-| `scrabble-0002` | Project scaffold: Vite+, TypeScript, Lit, Open Props, lint/format/test config, PR CI                                |
-| `scrabble-0003` | Domain: tiles, turn scoring, end game, reducer, with full unit tests                                                |
-| `scrabble-0004` | State: store, persistence, migrations                                                                               |
-| `scrabble-0005` | UI foundations: app shell, router, atoms, base styles; new-game and scoreboard pages (with pass and undo)           |
-| `scrabble-0006` | Turn entry: tiles, word rows, premium and blank marks, word squares, live totals, editing turns from the scoreboard |
-| `scrabble-0007` | End game, results (with reopen), game history with delete                                                           |
-| `scrabble-0008` | Deployment and PWA: Pages workflow, base path, manifest, service worker, install hint, wake lock                    |
-| `scrabble-0009` | Stretch: word list build script, lookup page, inline word check                                                     |
-| `scrabble-0010` | Stretch: settings and importing your own word list                                                                  |
+| Branch          | Milestone                                                                                                               |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `scrabble-0001` | Design document (this file)                                                                                             |
+| `scrabble-0002` | Project scaffold: Vite+, TypeScript, Lit, Open Props, lint/format/test config, PR CI                                    |
+| `scrabble-0003` | Domain: tiles, turn scoring, end game, reducer, with full unit tests                                                    |
+| `scrabble-0004` | State: store, persistence, migrations                                                                                   |
+| `scrabble-0005` | UI foundations: app shell, router, atoms, base styles; new-game and scoreboard pages (with pass and undo)               |
+| `scrabble-0006` | Turn entry: tiles, word rows, premium and blank marks, word squares, live totals, editing turns from the scoreboard     |
+| `scrabble-0007` | End game, results (with reopen), game history with delete                                                               |
+| `scrabble-0008` | Help page and home intro, settings, Pages deployment, PWA (manifest, icons, offline, update prompt, install, wake lock) |
+| `scrabble-0009` | Stretch: word list build script, lookup page, inline word check                                                         |
+| `scrabble-0010` | Stretch: settings and importing your own word list                                                                      |
 
 The core game is usable after `scrabble-0007` and published after
 `scrabble-0008`.
