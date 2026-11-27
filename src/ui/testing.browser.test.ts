@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vite-plus/test';
 import './templates/ss-app-shell.ts';
-import { create, mount, storeWithGame, testStore } from './testing.ts';
+import { html } from 'lit';
+import { create, mount, renderTemplate, storeWithGame, testStore } from './testing.ts';
 
 describe('create (test helper)', () => {
   it('makes an element with the given properties', () => {
@@ -53,5 +54,19 @@ describe('storeWithGame (test helper)', () => {
 
     // Assert
     expect(store.getState().game?.players.map((p) => p.name)).toEqual(names);
+  });
+});
+
+describe('renderTemplate (test helper)', () => {
+  it('renders the template into a container on the page', () => {
+    // Arrange
+    const template = html`<p>Hello</p>`;
+
+    // Act
+    const container = renderTemplate(template);
+
+    // Assert
+    expect(container.isConnected).toBe(true);
+    expect(container.textContent).toContain('Hello');
   });
 });
