@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <title>Scrabble Scorer</title>
+  <rect x="32" y="32" width="448" height="448" rx="64" fill="#fff3bf" stroke="#e9b949" stroke-width="16"/>
+  <text x="240" y="352" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="300" font-weight="700" fill="#212529">S</text>
+  <text x="400" y="430" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="96" font-weight="700" fill="#212529">1</text>
+</svg>

@@ -1,11 +1,13 @@
-import { describe, expect, it } from 'vite-plus/test';
+import { describe, expect, it, vi } from 'vite-plus/test';
 import { page, userEvent } from 'vite-plus/test/browser/context';
 import { KEYS, createMemoryStorage } from '../state/storage.ts';
 import { GameStore } from '../state/store.ts';
 import { APP_NAME, GAME, NEW_GAME, historyPath, turnPath } from './router.ts';
 import './ss-app.ts';
 import type { SsApp } from './ss-app.ts';
-import { create, mount, testStore } from './testing.ts';
+import { InstallPrompt } from './install-prompt.ts';
+import { ScreenWakeLock } from './screen-wake-lock.ts';
+import { create, mount, storeWithGame, testStore } from './testing.ts';
 
 /** Resolves after the next hashchange event (the app's own listener runs first). */
 const nextHashChange = () =>
@@ -101,6 +103,201 @@ describe('ss-app', () => {
 
     // Assert
     expect(currentPage(app)?.tagName).toBe(tagName);
+  });
+
+  it.each([
+    ['#/help', 'SS-PAGE-HELP'],
+    ['#/settings', 'SS-PAGE-SETTINGS'],
+  ])('shows the page for %s', async (hash, tagName) => {
+    // Arrange
+    const app = await mount(create('ss-app', { store: testStore() }));
+
+    // Act
+    await goTo(app, hash);
+
+    // Assert
+    expect(currentPage(app)?.tagName).toBe(tagName);
+  });
+
+  it('tells the shell which page is showing', async () => {
+    // Arrange
+    const app = await mount(create('ss-app', { store: testStore() }));
+
+    // Act
+    await goTo(app, '#/help');
+
+    // Assert
+    expect(app.querySelector('ss-app-shell')?.page).toBe('ss-page-help');
+  });
+
+  describe('new version', () => {
+    it('tells the shell when a new version is waiting', async () => {
+      // Arrange
+      const app = create('ss-app', { store: testStore(), updateAvailable: true });
+
+      // Act
+      await mount(app);
+
+      // Assert
+      expect(app.querySelector('ss-app-shell')?.updateAvailable).toBe(true);
+    });
+
+    it('reloads into the new version when the player chooses Reload', async () => {
+      // Arrange
+      const onReload = vi.fn();
+      await mount(create('ss-app', { store: testStore(), updateAvailable: true, onReload }));
+
+      // Act
+      await userEvent.click(page.getByRole('button', { name: 'Reload' }));
+
+      // Assert
+      expect(onReload).toHaveBeenCalledOnce();
+    });
+
+    it('does nothing on Reload when no reload has been set up', async () => {
+      // Arrange
+      await mount(create('ss-app', { store: testStore(), updateAvailable: true }));
+
+      // Act
+      const act = () => userEvent.click(page.getByRole('button', { name: 'Reload' }));
+
+      // Assert
+      await expect(act()).resolves.toBeUndefined();
+    });
+  });
+
+  describe('keeping saved games', () => {
+    it('asks the browser to keep saved data once there is a game', async () => {
+      // Arrange
+      const requestPersistence = vi.fn(async () => true);
+
+      // Act
+      await mount(create('ss-app', { store: storeWithGame(), requestPersistence }));
+
+      // Assert
+      expect(requestPersistence).toHaveBeenCalledOnce();
+    });
+
+    it('does not ask before there is a game', async () => {
+      // Arrange
+      const requestPersistence = vi.fn(async () => true);
+
+      // Act
+      await mount(create('ss-app', { store: testStore(), requestPersistence }));
+
+      // Assert
+      expect(requestPersistence).not.toHaveBeenCalled();
+    });
+
+    it('asks only once', async () => {
+      // Arrange
+      const requestPersistence = vi.fn(async () => true);
+      const store = testStore();
+      const app = await mount(create('ss-app', { store, requestPersistence }));
+      store.startGame(['Ann', 'Bob']);
+      await app.updateComplete;
+
+      // Act
+      store.addTurn({ kind: 'pass' });
+      await app.updateComplete;
+
+      // Assert
+      expect(requestPersistence).toHaveBeenCalledOnce();
+    });
+
+    it('carries on if the browser refuses', async () => {
+      // Arrange
+      const requestPersistence = vi.fn(() => Promise.reject(new Error('Not allowed')));
+
+      // Act
+      const app = await mount(create('ss-app', { store: storeWithGame(), requestPersistence }));
+
+      // Assert
+      expect(app.isConnected).toBe(true);
+    });
+  });
+
+  it('passes the installer to the home page', async () => {
+    // Arrange
+    const installer = new InstallPrompt({ events: new EventTarget(), nativeInstall: undefined });
+    const app = create('ss-app', { store: testStore(), installer });
+
+    // Act
+    await mount(app);
+
+    // Assert
+    expect((currentPage(app) as { installer?: InstallPrompt } | null)?.installer).toBe(installer);
+  });
+
+  describe('keeping the screen on', () => {
+    /** A wake lock with no browser API behind it, spied on. */
+    const spiedWakeLock = () => {
+      const wakeLock = new ScreenWakeLock({ api: undefined });
+      const want = vi.spyOn(wakeLock, 'want');
+      return { wakeLock, want };
+    };
+
+    it('keeps the screen on during an active game', async () => {
+      // Arrange
+      const { wakeLock, want } = spiedWakeLock();
+
+      // Act
+      await mount(create('ss-app', { store: storeWithGame(), wakeLock }));
+
+      // Assert
+      expect(want).toHaveBeenLastCalledWith(true);
+    });
+
+    it('lets the screen sleep with no game', async () => {
+      // Arrange
+      const { wakeLock, want } = spiedWakeLock();
+
+      // Act
+      await mount(create('ss-app', { store: testStore(), wakeLock }));
+
+      // Assert
+      expect(want).toHaveBeenLastCalledWith(false);
+    });
+
+    it('lets the screen sleep once the game has finished', async () => {
+      // Arrange
+      const { wakeLock, want } = spiedWakeLock();
+      const store = storeWithGame();
+      const app = await mount(create('ss-app', { store, wakeLock }));
+
+      // Act
+      store.finishGame({ wentOutPlayerId: null, remaining: {} });
+      await app.updateComplete;
+
+      // Assert
+      expect(want).toHaveBeenLastCalledWith(false);
+    });
+
+    it('lets the screen sleep when the setting is turned off', async () => {
+      // Arrange
+      const { wakeLock, want } = spiedWakeLock();
+      const store = storeWithGame();
+      const app = await mount(create('ss-app', { store, wakeLock }));
+
+      // Act
+      store.setKeepScreenOn(false);
+      await app.updateComplete;
+
+      // Assert
+      expect(want).toHaveBeenLastCalledWith(false);
+    });
+
+    it('releases the screen when the app is removed', async () => {
+      // Arrange
+      const { wakeLock, want } = spiedWakeLock();
+      const app = await mount(create('ss-app', { store: storeWithGame(), wakeLock }));
+
+      // Act
+      app.remove();
+
+      // Assert
+      expect(want).toHaveBeenLastCalledWith(false);
+    });
   });
 
   it('shows the home page for an unknown hash', async () => {
