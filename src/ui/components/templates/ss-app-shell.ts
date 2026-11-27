@@ -1,7 +1,7 @@
 import { LitElement, css, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { buttonStyles } from '../atoms/button-styles.ts';
-import { APP_NAME, HELP, HOME, SETTINGS, type Route } from '../../router.ts';
+import { APP_NAME, HELP, HOME, LOOKUP, SETTINGS, type Route } from '../../router.ts';
 import { baseStyles } from '../../base-styles.ts';
 
 /** Fired when the player dismisses the notice. */
@@ -26,6 +26,7 @@ export const UPDATE_MESSAGE = 'A new version of the app is ready.';
 
 /** Links in the header, available from every page. */
 const NAV_LINKS: readonly { href: string; label: string; page: Route['tag'] }[] = [
+  { href: LOOKUP, label: 'Check a word', page: 'ss-page-lookup' },
   { href: HELP, label: 'Help', page: 'ss-page-help' },
   { href: SETTINGS, label: 'Settings', page: 'ss-page-settings' },
 ];

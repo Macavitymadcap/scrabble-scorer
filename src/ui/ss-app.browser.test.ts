@@ -7,7 +7,7 @@ import './ss-app.ts';
 import type { SsApp } from './ss-app.ts';
 import { InstallPrompt } from './install-prompt.ts';
 import { ScreenWakeLock } from './screen-wake-lock.ts';
-import { create, mount, storeWithGame, testStore } from './testing.ts';
+import { create, mount, storeWithGame, testStore, testWordList } from './testing.ts';
 
 /** Resolves after the next hashchange event (the app's own listener runs first). */
 const nextHashChange = () =>
@@ -108,6 +108,7 @@ describe('ss-app', () => {
   it.each([
     ['#/help', 'SS-PAGE-HELP'],
     ['#/settings', 'SS-PAGE-SETTINGS'],
+    ['#/lookup', 'SS-PAGE-LOOKUP'],
   ])('shows the page for %s', async (hash, tagName) => {
     // Arrange
     const app = await mount(create('ss-app', { store: testStore() }));
@@ -217,6 +218,21 @@ describe('ss-app', () => {
     });
   });
 
+  it.each(['#/lookup', '#/turn', '#/settings'])(
+    'passes the shared word list to %s',
+    async (hash) => {
+      // Arrange
+      const wordList = testWordList();
+      const app = await mount(create('ss-app', { store: storeWithGame(), wordList }));
+
+      // Act
+      await goTo(app, hash);
+
+      // Assert
+      expect((currentPage(app) as { wordList?: unknown } | null)?.wordList).toBe(wordList);
+    },
+  );
+
   it('passes the installer to the home page', async () => {
     // Arrange
     const installer = new InstallPrompt({ events: new EventTarget(), nativeInstall: undefined });
@@ -280,7 +296,7 @@ describe('ss-app', () => {
       const app = await mount(create('ss-app', { store, wakeLock }));
 
       // Act
-      store.setKeepScreenOn(false);
+      store.updateSettings({ keepScreenOn: false });
       await app.updateComplete;
 
       // Assert

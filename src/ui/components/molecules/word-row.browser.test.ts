@@ -219,6 +219,47 @@ describe('renderWordRow', () => {
     await expect.element(field).toHaveAttribute('aria-invalid', 'true');
   });
 
+  describe('word list check', () => {
+    it('shows nothing when not given a check', () => {
+      // Arrange
+      const { container } = renderRow();
+
+      // Act
+      const check = container.querySelector('.word-check');
+
+      // Assert
+      expect(check).toBeNull();
+    });
+
+    it.each([
+      ['in', 'In the word list'],
+      ['out', 'Not in the word list'],
+      ['checking', 'Checking the word list...'],
+    ] as const)('says "%s" as "%s"', async (check, text) => {
+      // Arrange
+      renderRow({ check });
+
+      // Act
+      const field = page.getByRole('textbox', { name: 'Letters' });
+
+      // Assert
+      await expect.element(field).toHaveAccessibleDescription(text);
+    });
+
+    it('describes the field with both the error and the check', async () => {
+      // Arrange
+      renderRow({ error: 'Enter the word.', check: 'out' });
+
+      // Act
+      const field = page.getByRole('textbox', { name: 'Letters' });
+
+      // Assert
+      await expect
+        .element(field)
+        .toHaveAccessibleDescription('Enter the word. Not in the word list');
+    });
+  });
+
   it('is not removable unless asked', async () => {
     // Arrange
     renderRow({ index: 0, removable: false });

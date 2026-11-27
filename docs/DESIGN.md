@@ -227,9 +227,11 @@ flowchart LR
   - **Deleting:** **Delete all saved games** is on the list. Both deletes ask
     for confirmation first.
   - **From home:** the saved-games count on the home page links here.
-- **Settings** (`#/settings`): "Keep the screen on during games" (on by
-  default), saved on the device. The word-list options (choosing, importing
-  and downloading) will join it with the stretch goal.
+- **Check a word** (`#/lookup`): see [Loading and lookup](#loading-and-lookup).
+- **Settings** (`#/settings`): "Keep the screen on during games" and "Check
+  words as I type them" (both on by default), saved on the device, plus
+  "Download the word list for offline use". Importing your own list will join
+  it in `scrabble-0010`.
 
 ## Architecture
 
@@ -323,7 +325,7 @@ levels.
   - `#/turn` records a turn, and `#/turn/<id>` edits one
   - `#/end` end game, `#/results` the current game's results
   - `#/history` the list, and `#/history/<id>` a past game (`historyPath`)
-  - `#/help`, `#/settings`
+  - `#/help`, `#/settings`, `#/lookup` (check a word)
 
   It's a `Map` so lookups never match inherited keys like `toString`.
 
@@ -383,7 +385,10 @@ src/
   state/             store and persistence
     store.ts, storage.ts, migrations.ts, schema.ts (validation on load),
     settings.ts (device preferences), testing.ts (test fixtures)
-  words/             (stretch) lexicon.ts (load + lookup), import.ts (IndexedDB)
+  words/             word list
+    en-gb.txt        the bundled list (generated, committed)
+    word-list.ts     WordList: lazy load + lookup
+    (0010) import.ts    a player's own list (IndexedDB)
   ui/                UI infrastructure, flat
     ss-app.ts        root element: routing, store, document title, focus
     router.ts        routes, route parameters, navigation
@@ -403,7 +408,9 @@ src/
       templates/     ss-app-shell.ts
       pages/         page-element.ts (base class), ss-page-*.ts
 scripts/
-  build-wordlist.ts  (stretch)
+  build-wordlist.ts  builds src/words/en-gb.txt (npm run build:wordlist)
+  wordlist.ts        its pure, tested logic
+  extras.txt         words ENABLE predates (qi, za)
 ```
 
 **Naming:**
@@ -613,35 +620,55 @@ when passed as callbacks (`@click=${store.undoTurn}`). Private helpers
 
 ### Approach: a built-in British English list
 
-A one-off build script, `scripts/build-wordlist.ts`, creates the bundled list:
+`src/words/en-gb.txt` is committed, so normal builds and CI never download
+anything. To rebuild it:
 
-1. Take ENABLE, normalise it to lowercase and keep only `^[a-z]{2,15}$`.
-2. Add British spelling variants from VarCon whose American form is in ENABLE,
-   such as `-ise`/`-isation`, `-our`, doubled `-ll-`, `-tre` and `ae`/`oe`.
-   Using these explicit pairs avoids picking up SCOWL's proper nouns,
-   abbreviations and modern slang.
-3. Optionally merge a small hand-curated `extras.txt` for well-known gaps
-   (ENABLE predates words such as QI and ZA).
-4. Write `src/words/en-gb.txt` (one word per line, sorted) and
-   `THIRD_PARTY_NOTICES.md` with the ENABLE and SCOWL attributions. Both are
-   committed, so a normal build never downloads anything.
+```bash
+npm run build:wordlist -- --enable <path to enable1.txt>
+```
 
-A prototype run measured these figures:
+`scripts/build-wordlist.ts` reads local files only:
 
-| Measure                             | Value                                                 |
-| ----------------------------------- | ----------------------------------------------------- |
-| ENABLE after filtering              | 168,551 words                                         |
-| British variants added (heuristic)  | ~500 (e.g. _recognise_, _kilometres_, _orthopaedist_) |
-| Final list                          | ~169k words, ~1.7 MB raw                              |
-| Gzipped (as served by GitHub Pages) | ~0.44 MB                                              |
+1. **ENABLE**, downloaded once by hand. Its source, size and SHA-256 are in
+   `THIRD_PARTY_NOTICES.md`.
+2. **British spellings:** words in SCOWL's British English list but not its
+   American one. The lists are Ubuntu's `wbritish` and `wamerican`, version
+   2020.12.07, in `/usr/share/dict` (overridable with `--british` and
+   `--american`). That difference is exactly SCOWL's VarCon spelling-variant
+   data, so it needs no guessing rules. The plan had VarCon pairs plus
+   heuristics; an early heuristic pulled in junk like _cosplay_ and _ct_, and
+   this approach doesn't.
+3. **`scripts/extras.txt`**: QI and ZA, which ENABLE predates.
+4. **Filtering:** only lines that are exactly 2-15 letters a-z are kept, so
+   proper nouns (capitalised), possessives and accented words drop out
+   rather than being altered. The result is sorted, with one word per line.
 
-ENABLE already contains many British spellings (_colour_, _realise_,
-_theatre_), so the gap is mostly derived forms.
+The logic is in `scripts/wordlist.ts` (pure, unit-tested). The script only
+handles files and arguments, and references Node's types with
+`/// <reference types="node" />`, so Node globals can't creep into browser
+code.
+
+| Measure                  | Value                                        |
+| ------------------------ | -------------------------------------------- |
+| ENABLE, 2-15 letters     | 168,551 of 172,823 words                     |
+| British spellings found  | 1,495 (e.g. _centre_, _organisation_)        |
+| ...not already in ENABLE | 565 (e.g. _kilometres_, _recognise_)         |
+| Extras                   | 2 (_qi_, _za_)                               |
+| Final list               | 169,116 words, 1.67 MB raw, ~0.45 MB gzipped |
+
+ENABLE already has many British spellings (_colour_, _realise_, _theatre_),
+so most of the gap is derived forms.
+
+**Credit and licences:** `THIRD_PARTY_NOTICES.md` holds the sources and
+SCOWL's full copyright notice, verbatim. SCOWL's licence requires its
+notice, and the VarCon data falls under the Ispell (BSD-style) licence.
+ENABLE is public domain but asks for credit. The help's "Checking words"
+topic credits both lists and links to the notices.
 
 **Known limitation:** this fixes spelling, not vocabulary. Collins includes
 about 100k more words, many of them Scots, Commonwealth or obscure, so some
-words valid in Collins will be reported as "not found". The UI wording should
-reflect this: "not in word list", not "invalid".
+words valid in Collins are reported as "not in the word list". The UI never
+says "invalid".
 
 ### Optional: import your own list
 
@@ -653,15 +680,47 @@ imported one, and remove the imported list at any time.
 
 ### Loading and lookup
 
-- The list is imported with Vite's `?url` suffix, so it gets a content-hashed
-  file name and is cached long-term.
-- It is fetched **lazily** the first time a lookup is needed, so it doesn't
-  slow down the first load. The UI shows "loading word list..." until it is
-  ready.
-- It is parsed into a `Set<string>` for O(1) lookups. If memory turns out to
-  be a problem on low-end phones, a sorted array with binary search is the
-  fallback.
-- The service worker (see [Deployment](#deployment)) caches it for offline use.
+- **`WordList`** (`src/words/word-list.ts`):
+  - It fetches the list via Vite's `?url` import, so the file name is
+    content-hashed (`assets/en-gb-<hash>.txt`).
+  - It fetches **only the first time it's needed**, and only once, however
+    many pages ask.
+  - Its status goes `idle -> loading -> ready`, or `error`. A failed load (for
+    example, offline before the list was ever cached) can be retried, and
+    subscribers hear about every change.
+  - Lookups come from a `Set<string>` and ignore case. `contains()` returns
+    `undefined` until the list has loaded.
+- **One shared instance:** `ss-app` owns a single `WordList` and passes it to
+  the lookup, turn and settings pages.
+- **Offline:**
+  - The service worker caches the list the first time it's fetched, in a
+    cache-first `word-list` runtime cache holding at most 2 entries. It's
+    deliberately not precached (precache is ~159 KB; the list is 1.67 MB).
+  - `clientsClaim: true` makes the first service worker control the open page
+    as soon as it activates, so the list is cached even on a first visit.
+    Without it, that first fetch would skip the cache. New versions still
+    wait for Reload: `skipWaiting` only runs when the Reload button asks.
+- **Check a word** (`#/lookup`, linked as "Check a word" in the header):
+  - a word field (cleaned to A-Z) and a Check button, with Enter also working
+  - the result in a status message: "QUIZ is in the word list.", or "QUIXE
+    isn't in the word list. It may still be allowed in Collins Scrabble
+    Words, which this list doesn't fully cover."
+  - a separate message if the list couldn't be loaded, and an error for
+    fewer than 2 letters
+- **Inline check while entering a turn:**
+  - Each word with 2 or more letters shows "In the word list", "Not in the
+    word list" or "Checking the word list..." under its score. It's in text,
+    linked to the letters field with `aria-describedby`, not a live region,
+    so it isn't announced on every keystroke.
+  - It shows nothing if the list can't load, and it **never blocks saving**.
+  - It's on by default, controlled by the "Check words as I type them"
+    setting.
+- **Settings:**
+  - Settings now holds "Keep the screen on during games" and "Check words as
+    I type them". `updateSettings(changes)` replaces the earlier
+    `setKeepScreenOn`.
+  - "Download the word list for offline use" fetches the list ahead of time
+    and reports progress, success or failure.
 
 ## Tech stack and tooling
 
@@ -695,8 +754,8 @@ Keep it as simple as possible: HTML, CSS and TypeScript, with no UI framework.
 - **npm scripts:** `dev`, `build`, `preview`, `check` (format check, lint and
   types), `fix`, `lint`, `format`, `test` (single run), `test:watch`
   (`vp test watch`; plain `vp test` doesn't watch), `test:coverage`,
-  `generate:icons` (see [Installability](#installability)), and later
-  `build:wordlist`.
+  `generate:icons` (see [Installability](#installability)) and
+  `build:wordlist` (see [Approach](#approach-a-built-in-british-english-list)).
 - **Dev dependencies:**
   - `vite-plus`.
   - `@vitest/coverage-v8` and `@vitest/browser-playwright`, pinned to the
@@ -707,6 +766,9 @@ Keep it as simple as possible: HTML, CSS and TypeScript, with no UI framework.
     means a new download, locally and in CI.
   - `vite-plugin-pwa`, `workbox-window` and `@vite-pwa/assets-generator`,
     pinned exactly.
+  - `@types/node`, used only by `scripts/` and the word list's file test,
+    through `/// <reference types="node" />`. It isn't in `tsconfig`'s
+    `types`, so browser code can't use Node globals.
 
 ## Development workflow
 
@@ -776,9 +838,19 @@ All tests run on Vitest through Vite+ (`vp test`).
   Fixtures are in `src/state/testing.ts`, e.g. `failingStorage(['setItem'])`
   and `sequentialClock()`.
 
-- **Word list tests:** the built list is sorted, lowercase, `[a-z]{2,15}`
-  and free of duplicates. It contains sample British spellings (_colour_,
-  _recognise_) and excludes sample proper nouns. Lookups are case-insensitive.
+- **Word list tests:**
+  - **`scripts/wordlist.test.ts`:** parsing, the British-only difference,
+    merging and formatting.
+  - **`src/words/en-gb.test.ts`:** checks the committed file itself. It must
+    be sorted, unique, 2-15 letters a-z, with about 169k words. It must have
+    sample British spellings, _qi_ and _za_, and must not have proper nouns
+    or the junk the heuristic approach let in.
+  - **`src/words/word-list.test.ts`:** loading once, retries, statuses,
+    ignoring case, and the default fetch.
+
+  The `unit` project also runs `scripts/**/*.test.ts`, and
+  `scripts/wordlist.ts` counts towards coverage.
+
 - **Component tests:** Vitest browser mode with Playwright, in headless
   Chromium.
   - **Two Vitest projects in `vite.config.ts`:** `unit` (Node) runs
@@ -954,7 +1026,7 @@ Each milestone is one `scrabble-NNNN` branch and pull request (see
 | `scrabble-0006` | Turn entry: tiles, word rows, premium and blank marks, word squares, live totals, editing turns from the scoreboard     |
 | `scrabble-0007` | End game, results (with reopen), game history with delete                                                               |
 | `scrabble-0008` | Help page and home intro, settings, Pages deployment, PWA (manifest, icons, offline, update prompt, install, wake lock) |
-| `scrabble-0009` | Stretch: word list build script, lookup page, inline word check                                                         |
+| `scrabble-0009` | Stretch: word list build script, lookup page, inline word check (with setting), offline word list download              |
 | `scrabble-0010` | Stretch: settings and importing your own word list                                                                      |
 
 The core game is usable after `scrabble-0007` and published after

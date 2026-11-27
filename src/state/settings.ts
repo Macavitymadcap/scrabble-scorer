@@ -5,11 +5,17 @@ import type { KeyValueStorage } from './storage.ts';
 export interface Settings {
   /** Keep the screen on while a game is in progress. */
   keepScreenOn: boolean;
+  /** Show whether each word is in the word list while entering a turn. */
+  checkWords: boolean;
 }
 
 export const SETTINGS_KEY = 'scrabble-scorer:settings';
 
-export const DEFAULT_SETTINGS: Readonly<Settings> = { keepScreenOn: true };
+export const DEFAULT_SETTINGS: Readonly<Settings> = { keepScreenOn: true, checkWords: true };
+
+/** The value if it's a boolean, otherwise the fallback. */
+const booleanOr = (value: unknown, fallback: boolean): boolean =>
+  typeof value === 'boolean' ? value : fallback;
 
 /**
  * The saved settings, filled in from the defaults for anything missing or
@@ -20,10 +26,8 @@ export const loadSettings = (storage: KeyValueStorage): Settings => {
     const data: unknown = JSON.parse(storage.getItem(SETTINGS_KEY) ?? 'null');
     const saved = isRecord(data) ? data : {};
     return {
-      keepScreenOn:
-        typeof saved.keepScreenOn === 'boolean'
-          ? saved.keepScreenOn
-          : DEFAULT_SETTINGS.keepScreenOn,
+      keepScreenOn: booleanOr(saved.keepScreenOn, DEFAULT_SETTINGS.keepScreenOn),
+      checkWords: booleanOr(saved.checkWords, DEFAULT_SETTINGS.checkWords),
     };
   } catch {
     return { ...DEFAULT_SETTINGS };

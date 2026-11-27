@@ -3,6 +3,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { keyed } from 'lit/directives/keyed.js';
 import { currentRound, nextPlayer, roundOf } from '../../../domain/game.ts';
 import type { Game, Turn, TurnInput } from '../../../domain/types.ts';
+import type { WordList } from '../../../words/word-list.ts';
 import '../organisms/ss-turn-form.ts';
 import type { SaveTurnEvent } from '../organisms/ss-turn-form.ts';
 import { GAME, NEW_GAME, navigate } from '../../router.ts';
@@ -42,6 +43,9 @@ export class SsPageTurn extends PageElement {
   @property({ attribute: false }) turnId: string | undefined;
 
   @state() error = '';
+
+  /** The word list, for checking words as they're typed. */
+  @property({ attribute: false }) wordList: WordList | undefined;
 
   #onSave = (event: SaveTurnEvent): void => {
     const { store, turnId } = this;
@@ -100,6 +104,8 @@ export class SsPageTurn extends PageElement {
           html`<ss-turn-form
             .turn=${existing ? asInput(existing) : undefined}
             .error=${this.error}
+            .wordList=${this.wordList}
+            .checkWords=${this.state.settings.checkWords}
             @save-turn=${this.#onSave}
           >
             <a slot="actions" class="button" href=${GAME}>Cancel</a>

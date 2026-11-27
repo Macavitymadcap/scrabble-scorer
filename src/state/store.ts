@@ -148,9 +148,9 @@ export class GameStore {
     }
   };
 
-  /** Turns keeping the screen on during games on or off, and saves it. */
-  setKeepScreenOn = (keepScreenOn: boolean): void => {
-    const settings = { ...this.#state.settings, keepScreenOn };
+  /** Changes one or more settings and saves them. */
+  updateSettings = (changes: Partial<Settings>): void => {
+    const settings = { ...this.#state.settings, ...changes };
     const saved = saveSettings(this.#storage, settings);
     this.#setState({ settings, notice: saved ? this.#state.notice : MESSAGES.saveFailed });
   };

@@ -10,7 +10,8 @@ export interface Route {
     | 'ss-page-results'
     | 'ss-page-history'
     | 'ss-page-help'
-    | 'ss-page-settings';
+    | 'ss-page-settings'
+    | 'ss-page-lookup';
   /** The document title while this page is shown. */
   title: string;
 }
@@ -29,6 +30,7 @@ export const RESULTS = '#/results';
 export const HISTORY = '#/history';
 export const HELP = '#/help';
 export const SETTINGS = '#/settings';
+export const LOOKUP = '#/lookup';
 
 export const APP_NAME = 'Scrabble Scorer';
 
@@ -45,6 +47,7 @@ export const ROUTES: ReadonlyMap<string, Route> = new Map([
   [HISTORY, { tag: 'ss-page-history', title: `Game history - ${APP_NAME}` }],
   [HELP, { tag: 'ss-page-help', title: `Help - ${APP_NAME}` }],
   [SETTINGS, { tag: 'ss-page-settings', title: `Settings - ${APP_NAME}` }],
+  [LOOKUP, { tag: 'ss-page-lookup', title: `Check a word - ${APP_NAME}` }],
 ]);
 
 /** Decodes a hash parameter. A malformed escape is kept as typed, so the page can say it wasn't found. */

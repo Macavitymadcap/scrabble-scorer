@@ -40,7 +40,29 @@ describe('loadSettings', () => {
     const settings = loadSettings(storage);
 
     // Assert
-    expect(settings).toEqual({ keepScreenOn: false });
+    expect(settings).toEqual({ ...DEFAULT_SETTINGS, keepScreenOn: false });
+  });
+
+  it('checks words by default', () => {
+    // Arrange
+    const defaults = DEFAULT_SETTINGS;
+
+    // Act
+    const { checkWords } = defaults;
+
+    // Assert
+    expect(checkWords).toBe(true);
+  });
+
+  it('loads each setting on its own, defaulting the missing ones', () => {
+    // Arrange
+    const storage = storageWith(JSON.stringify({ checkWords: false }));
+
+    // Act
+    const settings = loadSettings(storage);
+
+    // Assert
+    expect(settings).toEqual({ keepScreenOn: true, checkWords: false });
   });
 
   it('uses the default for a value of the wrong type', () => {
@@ -95,7 +117,7 @@ describe('loadSettings', () => {
     const settings = loadSettings(storage);
 
     // Assert
-    expect(settings).toEqual({ keepScreenOn: false });
+    expect(settings).toEqual({ ...DEFAULT_SETTINGS, keepScreenOn: false });
   });
 
   it('returns a copy, so changing it cannot change the defaults', () => {
@@ -116,10 +138,10 @@ describe('saveSettings', () => {
     const storage = createMemoryStorage();
 
     // Act
-    saveSettings(storage, { keepScreenOn: false });
+    saveSettings(storage, { keepScreenOn: false, checkWords: false });
 
     // Assert
-    expect(loadSettings(storage)).toEqual({ keepScreenOn: false });
+    expect(loadSettings(storage)).toEqual({ keepScreenOn: false, checkWords: false });
   });
 
   it('reports success', () => {
